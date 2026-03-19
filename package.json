@@ -1,0 +1,14 @@
+{
+  "name": "dm-bot-bm-plugin",
+  "version": "1.0.0",
+  "dmBot": {
+    "coreApiVersion": "^6.0.0",
+    "description": "Bookmark plugin"
+  },
+  "description": "Bookmark plugin",
+  "type": "module",
+  "dependencies": {
+    "@opencode-ai/plugin": "^1.2.21",
+    "@opencode-ai/sdk": "^1.2.16"
+  }
+}
