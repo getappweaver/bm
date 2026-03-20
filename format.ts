@@ -1,13 +1,7 @@
 // ---------------------------------------------------------------------------
-// plugins/bm/format.ts — Display helpers for the bm plugin
-//
-// Replace with formatters for your entity and drafts, e.g.:
-// - formatBmDetail(item) for !bm show <id>
-// - formatBmTree(items) or list view for !bm list
-// - formatCreateDraftTree(draft), formatDraftReply(cmd, id, kind) for draft UX
-// - hasDraftChildren(draft) if you support nested/tree drafts
+// plugins/bm/format.ts — Display helpers for bookmarks
 // ---------------------------------------------------------------------------
-import type { CreateBmDraft, Bm } from './types';
+import type { Bm, BmCategoryCount, BmTagCount, CreateBmDraft } from './types';
 
 export function hasDraftChildren(_node: CreateBmDraft): boolean {
   return false;
@@ -29,22 +23,65 @@ export function formatDraftReply(
   return `${first}${cmd} accept ${id}\n${pad}${cmd} revise ${id} <corrections>\n${pad}${cmd} decline ${id}`;
 }
 
-export function formatCreateDraftTree(node: CreateBmDraft): string {
-  return `  - ${node.data}`;
-}
+export function formatCreateDraftList(node: CreateBmDraft): string {
+  const lines = [`  URL:  ${node.url}`, `  Title: ${node.title}`];
 
-export function formatBmTree(items: Bm[], _showDescriptions?: boolean): string {
-  if (items.length === 0) {
-    return 'No bms.';
+  if (node.summary) {
+    lines.push(`  Summary: ${node.summary}`);
   }
 
-  return items.map((t) => `  ${t.id} ${t.data}`).join('\n');
+  if (node.description) {
+    lines.push(`  Description: ${node.description}`);
+  }
+
+  if (node.category) {
+    lines.push(`  Category: ${node.category}`);
+  }
+
+  if (node.tags) {
+    lines.push(`  Tags: ${node.tags}`);
+  }
+
+  if (node.to_read === true) {
+    lines.push('  To read: yes');
+  }
+
+  return lines.join('\n');
+}
+
+export function formatBmTagCounts(rows: BmTagCount[]): string {
+  return rows.map((r) => `  ${r.tag}  ${r.count}`).join('\n');
+}
+
+export function formatBmCategoryCounts(rows: BmCategoryCount[]): string {
+  return rows.map((r) => `  ${r.category}  ${r.count}`).join('\n');
+}
+
+export function formatBms(items: Bm[]): string {
+  if (items.length === 0) {
+    return 'No bookmarks.';
+  }
+
+  return items
+    .map((t) => {
+      const mark = t.to_read ? '*' : ' ';
+
+      return `  ${t.id}${mark} ${t.title}\n      ${t.url}`;
+    })
+    .join('\n');
 }
 
 export function formatBmDetail(t: Bm): string {
   return [
-    `ID:   ${t.id}`,
-    `Data: ${t.data}`,
-    `Created: ${new Date(t.created_at).toLocaleString()}`,
+    `ID:          ${t.id}`,
+    `URL:         ${t.url}`,
+    `Title:       ${t.title}`,
+    `Summary:     ${t.summary ?? '—'}`,
+    `Description: ${t.description ?? '—'}`,
+    `Category:    ${t.category ?? '—'}`,
+    `Tags:        ${t.tags ?? '—'}`,
+    `To read:     ${t.to_read ? 'yes' : 'no'}`,
+    `Read:        ${t.read_at ? new Date(t.read_at).toLocaleString() : '—'}`,
+    `Created:     ${new Date(t.created_at).toLocaleString()}`,
   ].join('\n');
 }

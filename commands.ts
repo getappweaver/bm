@@ -12,13 +12,29 @@ import type { Database } from 'bun:sqlite';
 import type { AgentRunResult } from '@src/backends/types';
 import type { PluginIdentity } from '@src/core/plugin';
 
-import { handleBmAi } from './ai';
-import { createBm, deleteBm, getBm, listBms, updateBm } from './db';
+import { handleBmAi, handleBmSummarize } from './ai';
+import { buildBmPluginContextText } from './context';
+import {
+  createBm,
+  deleteBm,
+  getBm,
+  listBmCategoryCounts,
+  listBmTagCounts,
+  listBms,
+  updateBm,
+} from './db';
 import { deleteDraft, getDraft, listDrafts } from './drafts';
-import { formatCreateDraftTree, formatDraftReply } from './format';
-import { formatBmDetail, formatBmTree } from './format';
+import {
+  formatBmCategoryCounts,
+  formatBmTagCounts,
+  formatBms,
+  formatBmDetail,
+  formatCreateDraftList,
+  formatDraftReply,
+} from './format';
+import { parseBmListCliArgs } from './list-args';
 import type { CreateBmDraft, UpdateBmInput } from './types';
-import { CreateBmInputSchema } from './types';
+import { CreateBmInputSchema, normalizeCreateBmInput } from './types';
 
 export type HandleBmProps = {
   args: string[];
@@ -53,28 +69,85 @@ export async function handleBm({
     return handleBmAi({ args: rest, db, identity, runAgent });
   }
 
-  if (sub === 'add') {
-    const text = rest.join(' ').trim();
-
-    if (!text) {
-      return `Usage: !${alias} add <text>`;
+  if (sub === 'summarize') {
+    if (!runAgent) {
+      return `!${alias} summarize requires an agent backend. Set backend and try again.`;
     }
 
-    const parsed = CreateBmInputSchema.safeParse({ data: text });
+    const idRaw = rest[0]?.trim();
+
+    if (!idRaw) {
+      return `Usage: !${alias} summarize <id>`;
+    }
+
+    const id = parseInt(idRaw, 10);
+
+    if (Number.isNaN(id)) {
+      return `Usage: !${alias} summarize <id>`;
+    }
+
+    return handleBmSummarize({ id, db, identity, runAgent });
+  }
+
+  if (sub === 'add') {
+    if (rest.length < 2) {
+      return `Usage: !${alias} add <url> <title...>`;
+    }
+
+    const url = rest[0]!.trim();
+    const title = rest.slice(1).join(' ').trim();
+
+    const parsed = CreateBmInputSchema.safeParse({ url, title });
 
     if (!parsed.success) {
       return `Invalid input: ${parsed.error.message}`;
     }
 
-    const item = createBm(db, parsed.data);
+    const item = createBm(db, normalizeCreateBmInput(parsed.data));
 
     return `Created #${item.id}\n${formatBmDetail(item)}`;
   }
 
   if (sub === 'list') {
-    const items = listBms(db);
+    const parsed = parseBmListCliArgs(rest);
 
-    return items.length === 0 ? 'No bms.' : formatBmTree(items);
+    if (!parsed.ok) {
+      return parsed.error;
+    }
+
+    const items = listBms({ db, filters: parsed.filters });
+
+    return items.length === 0 ? 'No bookmarks.' : formatBms(items);
+  }
+
+  if (sub === 'tags') {
+    if (rest.length > 0) {
+      return `Usage: !${alias} tags`;
+    }
+
+    const rows = listBmTagCounts(db);
+
+    return rows.length === 0 ? 'No tags yet.' : formatBmTagCounts(rows);
+  }
+
+  if (sub === 'cats' || sub === 'categories') {
+    if (rest.length > 0) {
+      return `Usage: !${alias} cats`;
+    }
+
+    const rows = listBmCategoryCounts(db);
+
+    return rows.length === 0
+      ? 'No categories yet.'
+      : formatBmCategoryCounts(rows);
+  }
+
+  if (sub === 'context') {
+    if (rest.length > 0) {
+      return `Usage: !${alias} context`;
+    }
+
+    return buildBmPluginContextText({ db });
   }
 
   if (sub === 'show') {
@@ -142,7 +215,7 @@ export async function handleBm({
         return [
           `Draft #${id} [create]:`,
           '',
-          formatCreateDraftTree(entry.input as CreateBmDraft),
+          formatCreateDraftList(entry.input as CreateBmDraft),
           '',
           formatDraftReply(cmd, id, 'create'),
         ].join('\n');
@@ -224,10 +297,6 @@ export async function handleBm({
     }
 
     const entry = getDraft(db, draftId);
-
-    if (!entry) {
-      return `Draft not found: #${draftId}`;
-    }
 
     if (!entry) {
       return `Draft not found: #${draftId}`;

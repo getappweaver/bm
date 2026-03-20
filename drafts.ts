@@ -6,14 +6,18 @@
 // simplify commands and opencode to apply changes directly and remove or
 // stub draft usage here.
 //
-// Replace CreateBmDraft / UpdateBmInput with your
-// types from types.ts so draft entries type-check.
+// Draft payloads use types from ./types (bookmark + draft modules).
 // ---------------------------------------------------------------------------
 import type { Database } from 'bun:sqlite';
 
 import { assertUnreachable } from '@src/utils';
 
-import type { CreateBmDraft, UpdateBmInput } from './types';
+import {
+  CreateBmInputSchema,
+  normalizeCreateBmInput,
+  type CreateBmDraft,
+  type UpdateBmInput,
+} from './types';
 
 export type CreateDraftEntry = {
   kind: 'create';
@@ -106,7 +110,13 @@ function rowToDraft(row: Record<string, unknown>): BmDraftRow {
   const id = Number(row.id);
 
   if (kind === 'create') {
-    return { id, kind, input: input as CreateBmDraft, originalPrompt };
+    const parsed = CreateBmInputSchema.safeParse(input);
+
+    const normalized: CreateBmDraft = parsed.success
+      ? normalizeCreateBmInput(parsed.data)
+      : (input as CreateBmDraft);
+
+    return { id, kind, input: normalized, originalPrompt };
   }
 
   if (kind === 'update') {

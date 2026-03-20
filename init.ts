@@ -5,9 +5,9 @@
 // command list once you implement commands in commands.ts.
 // ---------------------------------------------------------------------------
 
-import { basename, join } from 'path';
+import { basename } from 'path';
 
-import { Database } from 'bun:sqlite';
+import type { Database } from 'bun:sqlite';
 
 import {
   parsePluginPackageJson,
@@ -16,8 +16,7 @@ import {
 } from '@src/core/plugin';
 
 import { handleBm } from './commands';
-import { createBmTable } from './db';
-import { createBmDraftsTable } from './drafts';
+import { openDb } from './db';
 
 const pluginDir = import.meta.dir;
 const alias = basename(pluginDir);
@@ -60,14 +59,23 @@ export const BmPlugin: BotPlugin = {
   onInit: (ctx: PluginContext) => {
     BmPluginContext = ctx;
 
-    BmPluginDb = new Database(join(pluginDir, 'db.sqlite'), { strict: true });
-
-    createBmTable(BmPluginDb);
-    createBmDraftsTable(BmPluginDb);
+    BmPluginDb = openDb();
   },
   // Replace with your real command help lines when you implement commands.
   helpText: (alias: string) => [
     `!${alias} help — this message`,
-    `!${alias} ai <prompt> — natural language (implement in ai.ts + tool.ts)`,
+    `!${alias} ai <prompt> — create bookmark drafts with natural language`,
+    `!${alias} summarize <id> — fetch URL and save summary on bookmark (agent)`,
+    `!${alias} add <url> <title...> — add a bookmark`,
+    `!${alias} list [filters] — list bookmarks (* = on reading list)`,
+    `  --to-read | --no-to-read`,
+    `  --tag <name> (repeat)  --tags a,b,c`,
+    `  --category <path> (exact, subtree, or segment e.g. nostr → tech/nostr/nips)`,
+    `  --title <substring>  --url <substring>`,
+    `!${alias} tags — all tags with bookmark counts`,
+    `!${alias} cats — categories with bookmark counts`,
+    `!${alias} context — tags and categories with counts (same as !bm ai taxonomy context)`,
+    `!${alias} show <id> — show one bookmark`,
+    `!${alias} delete <id> — delete a bookmark`,
   ],
 };
