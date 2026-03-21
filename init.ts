@@ -15,7 +15,7 @@ import {
   type PluginContext,
 } from '@src/core/plugin';
 
-import { handleBm } from './commands';
+import { handleBm } from './commands/commands';
 import { openDb } from './db';
 
 const pluginDir = import.meta.dir;
@@ -61,20 +61,26 @@ export const BmPlugin: BotPlugin = {
 
     BmPluginDb = openDb();
   },
-  // Replace with your real command help lines when you implement commands.
   helpText: (alias: string) => [
+    `Bookmarks: structured links with category, tags, and media type—created only via !${alias} ai (drafts: you accept or decline) so every field is filled reliably. Queue items for later, mark done, list and filter.`,
+    '',
     `!${alias} help — this message`,
     `!${alias} ai <prompt> — create bookmark drafts with natural language`,
     `!${alias} summarize <id> — fetch URL and save summary on bookmark (agent)`,
-    `!${alias} add <url> <title...> — add a bookmark`,
-    `!${alias} list [filters] — list bookmarks (* = on reading list)`,
-    `  --to-read | --no-to-read`,
+    `!${alias} next [media_type] [--category <path>] [--tag/--tags ...] — oldest unconsumed match (prefers queue; falls back to not-in-queue with a notice)`,
+    `!${alias} done <id> — mark consumed and remove from queue`,
+    `!${alias} queue <id> — add to active backlog`,
+    `!${alias} list [filters] — list bookmarks (Q = in queue)`,
+    `  --queued | --no-queued`,
+    `  --unconsumed | --consumed`,
+    `  --type <media_type>`,
     `  --tag <name> (repeat)  --tags a,b,c`,
     `  --category <path> (exact, subtree, or segment e.g. nostr → tech/nostr/nips)`,
     `  --title <substring>  --url <substring>`,
     `!${alias} tags — all tags with bookmark counts`,
     `!${alias} cats — categories with bookmark counts`,
-    `!${alias} context — tags and categories with counts (same as !bm ai taxonomy context)`,
+    `!${alias} types — media types with bookmark counts`,
+    `!${alias} context — tags, categories, media types (same as !bm ai taxonomy context)`,
     `!${alias} show <id> — show one bookmark`,
     `!${alias} delete <id> — delete a bookmark`,
   ],

@@ -7,7 +7,12 @@ export type BmListFilters = {
   category: string | null;
   title_contains: string | null;
   url_contains: string | null;
-  to_read: boolean | null;
+  /** If true, only rows with in_queue = 1; if false, only in_queue = 0; null = no filter. */
+  in_queue: boolean | null;
+  /** If false, only rows with consumed_at IS NULL; if true, only consumed; null = no filter. */
+  consumed: boolean | null;
+  /** Exact match on normalized (lowercase) media_type; null = no filter. */
+  media_type: string | null;
 };
 
 export const BM_LIST_FILTERS_NONE: BmListFilters = {
@@ -15,7 +20,9 @@ export const BM_LIST_FILTERS_NONE: BmListFilters = {
   category: null,
   title_contains: null,
   url_contains: null,
-  to_read: null,
+  in_queue: null,
+  consumed: null,
+  media_type: null,
 };
 
 type BmListFiltersPartial = {
@@ -23,7 +30,9 @@ type BmListFiltersPartial = {
   category?: string | undefined;
   title_contains?: string | undefined;
   url_contains?: string | undefined;
-  to_read?: boolean | undefined;
+  in_queue?: boolean | undefined;
+  consumed?: boolean | undefined;
+  media_type?: string | undefined;
 };
 
 export function normalizeBmListFilters(
@@ -34,6 +43,8 @@ export function normalizeBmListFilters(
     category: partial.category ?? null,
     title_contains: partial.title_contains ?? null,
     url_contains: partial.url_contains ?? null,
-    to_read: partial.to_read ?? null,
+    in_queue: partial.in_queue ?? null,
+    consumed: partial.consumed ?? null,
+    media_type: partial.media_type ?? null,
   };
 }

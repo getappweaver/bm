@@ -1,8 +1,9 @@
 // ---------------------------------------------------------------------------
 // plugins/bm/list-args.ts — Parse !bm list CLI flags into BmListFilters
 // ---------------------------------------------------------------------------
-import type { BmListFilters } from './types';
-import { BM_LIST_FILTERS_NONE } from './types';
+import type { BmListFilters } from '../types';
+import { BM_LIST_FILTERS_NONE } from '../types';
+import { normalizeMediaTypeFilter } from '../types';
 
 type ParseBmListCliArgsResult =
   | { ok: true; filters: BmListFilters }
@@ -27,33 +28,74 @@ export function parseBmListCliArgs(rest: string[]): ParseBmListCliArgsResult {
   let category: string | null = null;
   let titleContains: string | null = null;
   let urlContains: string | null = null;
-  let toRead: boolean | null = null;
+  let inQueue: boolean | null = null;
+  let consumed: boolean | null = null;
+  let mediaType: string | null = null;
 
   for (let i = 0; i < rest.length; i++) {
     const a = rest[i]!;
 
-    if (a === '--to-read') {
-      if (toRead === false) {
+    if (a === '--queued') {
+      if (inQueue === false) {
         return {
           ok: false,
-          error: 'Conflicting flags: --to-read and --no-to-read.',
+          error: 'Conflicting flags: --queued and --no-queued.',
         };
       }
 
-      toRead = true;
+      inQueue = true;
 
       continue;
     }
 
-    if (a === '--no-to-read') {
-      if (toRead === true) {
+    if (a === '--no-queued') {
+      if (inQueue === true) {
         return {
           ok: false,
-          error: 'Conflicting flags: --to-read and --no-to-read.',
+          error: 'Conflicting flags: --queued and --no-queued.',
         };
       }
 
-      toRead = false;
+      inQueue = false;
+
+      continue;
+    }
+
+    if (a === '--unconsumed') {
+      if (consumed === true) {
+        return {
+          ok: false,
+          error: 'Conflicting flags: --unconsumed and --consumed.',
+        };
+      }
+
+      consumed = false;
+
+      continue;
+    }
+
+    if (a === '--consumed') {
+      if (consumed === false) {
+        return {
+          ok: false,
+          error: 'Conflicting flags: --unconsumed and --consumed.',
+        };
+      }
+
+      consumed = true;
+
+      continue;
+    }
+
+    if (a === '--type') {
+      const v = nextValue(rest, i);
+
+      if (v === null) {
+        return { ok: false, error: 'Missing value for --type.' };
+      }
+
+      mediaType = v;
+      i += 1;
 
       continue;
     }
@@ -140,6 +182,8 @@ export function parseBmListCliArgs(rest: string[]): ParseBmListCliArgsResult {
     };
   }
 
+  const mtNorm = normalizeMediaTypeFilter(mediaType);
+
   return {
     ok: true,
     filters: {
@@ -147,7 +191,9 @@ export function parseBmListCliArgs(rest: string[]): ParseBmListCliArgsResult {
       category,
       title_contains: titleContains,
       url_contains: urlContains,
-      to_read: toRead,
+      in_queue: inQueue,
+      consumed,
+      media_type: mtNorm,
     },
   };
 }

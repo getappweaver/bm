@@ -17,7 +17,7 @@ import type { ParseSettledResult } from '@src/tools/utils';
 import { parseToolCalls } from '@src/tools/utils';
 
 import { buildBmPluginContextText } from './context';
-import { getBm, listBms, updateBm } from './db';
+import { getBm, listBmsWithQueueFallback, updateBm } from './db';
 import { storeDraft } from './drafts';
 import {
   formatBmDetail,
@@ -31,6 +31,7 @@ import {
   UpdateBmInputSchema,
   normalizeBmListFilters,
   normalizeCreateBmInput,
+  normalizeMediaTypeFilter,
 } from './types';
 
 const BmListCallSchema = z.object({
@@ -61,11 +62,25 @@ const BmListCallSchema = z.object({
     .nullable()
     .optional()
     .describe('Substring match on URL.'),
-  to_read: z
+  in_queue: z
     .boolean()
     .optional()
     .describe(
-      'If true, only reading-list bookmarks; if false, only non–reading-list; omit for all.',
+      'If true, only bookmarks marked in active backlog; if false, only not in queue; omit for all.',
+    ),
+  consumed: z
+    .boolean()
+    .optional()
+    .describe(
+      'If false, only bookmarks not yet consumed (consumed_at is null); if true, only consumed; omit for all.',
+    ),
+  media_type: z
+    .string()
+    .min(1)
+    .nullable()
+    .optional()
+    .describe(
+      'Exact match on stored media_type (lowercase), e.g. read, watch, listen. Omit or null for all.',
     ),
 });
 
@@ -104,12 +119,19 @@ type BmToolCall = z.infer<typeof BmToolCallSchema>;
 type BmListCall = z.infer<typeof BmListCallSchema>;
 
 function bmListCallToFilters(call: BmListCall): BmListFilters {
+  const mediaTypeNorm =
+    call.media_type !== undefined && call.media_type !== null
+      ? normalizeMediaTypeFilter(call.media_type)
+      : undefined;
+
   return normalizeBmListFilters({
     tags_all: call.tags_all,
     category: call.category ?? undefined,
     title_contains: call.title_contains ?? undefined,
     url_contains: call.url_contains ?? undefined,
-    to_read: call.to_read,
+    in_queue: call.in_queue,
+    consumed: call.consumed,
+    media_type: mediaTypeNorm ?? undefined,
   });
 }
 
@@ -125,6 +147,11 @@ export function buildSystemPrompt(userPrompt: string, context: string): string {
     'Fill title, description, category, and tags from the fetched body: real heading or first meaningful line for title; slash categories and comma-separated tags aligned with context below.',
     'Include input.summary ONLY when the user clearly asked for a page summary (e.g. summarize, tl;dr, overview). Otherwise omit summary entirely—do not fill it by default.',
     'Only skip fetching if the URL scheme cannot be retrieved (e.g. nostr:, intent-only links); then infer conservatively from the URL text and user message.',
+    'Every `create` call MUST include `input.category` (non-empty path/label), `input.tags` (comma-separated, at least one tag), `input.media_type` (non-empty string), and `input.in_queue` (boolean) explicitly.',
+    'Set in_queue true when the user wants backlog / save for later; false for reference-only.',
+    'Set input.media_type to a single lowercase label (e.g. read, watch, listen) inferred from URL and intent; prefer existing media types from context when they fit.',
+    'Infer category and tags from the page and user message; prefer existing categories and tags from the context snapshot.',
+    'For type "list": when suggesting unconsumed reads/watch, use consumed: false plus category/tags/media_type as needed. You may omit in_queue or set it true—the server tries queued items first, then the same filters without requiring queue if nothing matched. Use in_queue: false only when the user wants items not in the queue.',
   ].join('\n');
 
   return `You are helping the user manage bookmarks. Current state:\n${context}\n\nUser request: "${userPrompt}"\n\n${createRules}\n\nOutput one or more JSON objects matching this schema (one per line for multiple). No markdown.\n\n${JSON.stringify(schema, null, 2)}`;
@@ -267,9 +294,15 @@ export async function handleBmAi({
   for (const { value } of fulfilled) {
     if (value.type === 'list') {
       const filters = bmListCallToFilters(value);
-      const list = listBms({ db, filters });
 
-      return list.length === 0 ? 'No bookmarks.' : formatBms(list);
+      const { items, expandedFromQueue } = listBmsWithQueueFallback({
+        db,
+        filters,
+      });
+
+      return items.length === 0
+        ? 'No bookmarks.'
+        : formatBms(items, { expandedFromQueue });
     }
 
     if (value.type === 'context') {
@@ -376,9 +409,9 @@ export function agentInstructions(alias: string): string {
 
 Use the CLI tools for list/show/create/update/delete bookmark flows.
 Run \`bun src/cli.ts bm context\` (tool \`context\`) to print the same tag/category snapshot (with counts) as \`!bm ai\`; use \`bm list\` when you need bookmark ids or titles.
-For \`list\`, pass explicit filter fields when the user narrows results: \`tags_all\` (every tag required, AND), \`category\` (exact path, subtree prefix, or segment anywhere in the path e.g. \`nostr\` matches \`tech/nostr/nips\`), \`title_contains\`, \`url_contains\`, \`to_read\`. Combine filters when appropriate.
+For \`list\`, pass explicit filter fields when the user narrows results: \`tags_all\` (every tag required, AND), \`category\` (exact path, subtree prefix, or segment anywhere in the path e.g. \`nostr\` matches \`tech/nostr/nips\`), \`title_contains\`, \`url_contains\`, \`in_queue\`, \`consumed\`, \`media_type\`. Combine filters when appropriate. For unconsumed suggestions (\`consumed: false\`), the server lists queued matches first and only then the same filters without requiring queue—unless \`in_queue: false\` (non-queue only).
 For mutating calls (create/update/delete), include \`original_prompt\` at the top level with the user request verbatim.
-For \`create\`: fetch http/https when possible; fill \`input.title\`, \`description\`, \`category\`, \`tags\` from content. Set \`input.summary\` only if the user explicitly asked for a summary; otherwise omit it.
+For \`create\`: fetch http/https when possible; fill \`input.title\`, \`description\`, \`category\`, \`tags\` from content (category and tags are required on every create). Set \`input.summary\` only if the user explicitly asked for a summary; otherwise omit it. Always include explicit \`input.media_type\` and \`input.in_queue\` (see system prompt).
 For a live summary on an existing row, the user runs chat \`!${alias} summarize <id>\` (agent backend required)—not a CLI tool schema branch.
 
 After a mutating call returns a draft:
@@ -402,9 +435,15 @@ export async function executeTool({
   switch (call.type) {
     case 'list': {
       const filters = bmListCallToFilters(call);
-      const list = listBms({ db, filters });
 
-      return list.length === 0 ? 'No bookmarks.' : formatBms(list);
+      const { items, expandedFromQueue } = listBmsWithQueueFallback({
+        db,
+        filters,
+      });
+
+      return items.length === 0
+        ? 'No bookmarks.'
+        : formatBms(items, { expandedFromQueue });
     }
 
     case 'context': {
