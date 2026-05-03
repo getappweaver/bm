@@ -12,11 +12,16 @@ import type { Database } from 'bun:sqlite';
 import {
   parsePluginPackageJson,
   type BotPlugin,
+  type PluginInvocationContext,
   type PluginContext,
 } from '@src/core/plugin';
+import type { WebNodeRoot } from '@src/web/ui-schema';
 
-import { handleBm } from './commands/commands';
-import { openDb } from './db';
+import { handleBm } from './adapter';
+import { aiDefinition } from './ai';
+import { openDb } from './db/open';
+import { getBmCommandDefinition, getBmHelpLines } from './help';
+import { bmStories } from './stories';
 
 const pluginDir = import.meta.dir;
 const alias = basename(pluginDir);
@@ -39,7 +44,10 @@ export const BmPlugin: BotPlugin = {
     version: bmPkg.version,
     description: bmPkg.description,
   },
-  handler: (args: string[]) => {
+  handler: (
+    args: string[],
+    context: PluginInvocationContext,
+  ): Promise<string | WebNodeRoot> => {
     if (!BmPluginContext) {
       throw new Error('BmPlugin not initialized');
     }
@@ -52,8 +60,16 @@ export const BmPlugin: BotPlugin = {
       args,
       db: BmPluginDb,
       identity: BmPlugin.identity,
-      runAgent: BmPluginContext.runAgent,
-      helpText: BmPlugin.helpText,
+      prefix: context.prefix,
+      source: context.source,
+      pool: BmPluginContext.pool,
+      masterPubkey: BmPluginContext.masterPubkey,
+      runAgent: context.runAgent,
+      sendReply: context.sendReply ?? BmPluginContext.sendReply,
+      promptFn: context.promptFn ?? BmPluginContext.promptFn,
+      getWotScore: BmPluginContext.getWotScore,
+      signWithBunker: BmPluginContext.signWithBunker,
+      helpText: (a, p) => BmPlugin.helpText(a, p),
     });
   },
   onInit: (ctx: PluginContext) => {
@@ -61,27 +77,14 @@ export const BmPlugin: BotPlugin = {
 
     BmPluginDb = openDb();
   },
-  helpText: (alias: string) => [
-    `Bookmarks: structured links with category, tags, and media type—created only via !${alias} ai (drafts: you accept or decline) so every field is filled reliably. Queue items for later, mark done, list and filter.`,
+  helpText: (alias: string, prefix: string) => [
+    `Bookmarks: structured links with category, tags, and media type—created only via ${prefix}${alias} ai (drafts: you accept or decline) so every field is filled reliably. Queue items for later, mark done, list and filter.`,
     '',
-    `!${alias} help — this message`,
-    `!${alias} ai <prompt> — create bookmark drafts with natural language`,
-    `!${alias} summarize <id> — fetch URL and save summary on bookmark (agent)`,
-    `!${alias} next [media_type] [--category <path>] [--tag/--tags ...] — oldest unconsumed match (prefers queue; falls back to not-in-queue with a notice)`,
-    `!${alias} done <id> — mark consumed and remove from queue`,
-    `!${alias} queue <id> — add to active backlog`,
-    `!${alias} list [filters] — list bookmarks (Q = in queue)`,
-    `  --queued | --no-queued`,
-    `  --unconsumed | --consumed`,
-    `  --type <media_type>`,
-    `  --tag <name> (repeat)  --tags a,b,c`,
-    `  --category <path> (exact, subtree, or segment e.g. nostr → tech/nostr/nips)`,
-    `  --title <substring>  --url <substring>`,
-    `!${alias} tags — all tags with bookmark counts`,
-    `!${alias} cats — categories with bookmark counts`,
-    `!${alias} types — media types with bookmark counts`,
-    `!${alias} context — tags, categories, media types (same as !bm ai taxonomy context)`,
-    `!${alias} show <id> — show one bookmark`,
-    `!${alias} delete <id> — delete a bookmark`,
+    `${prefix}${alias} help [subcommand]            — command help`,
+    ...getBmHelpLines(prefix, alias),
   ],
+  aiDefinition,
+  commandDefinition: (prefix: string, pluginAlias: string) =>
+    getBmCommandDefinition(prefix, pluginAlias),
+  stories: bmStories,
 };

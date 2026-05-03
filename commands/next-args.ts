@@ -13,6 +13,12 @@ type ParseBmNextCliArgsResult =
   | { ok: true; filters: BmNextCliFilters }
   | { ok: false; error: string };
 
+type ParseBmNextCliArgsProps = {
+  rest: string[];
+  prefix: string;
+  alias: string;
+};
+
 function nextValue(args: string[], i: number): string | null {
   const v = args[i + 1];
 
@@ -23,7 +29,11 @@ function nextValue(args: string[], i: number): string | null {
   return v;
 }
 
-export function parseBmNextCliArgs(rest: string[]): ParseBmNextCliArgsResult {
+export function parseBmNextCliArgs({
+  rest,
+  prefix,
+  alias,
+}: ParseBmNextCliArgsProps): ParseBmNextCliArgsResult {
   const tagsAccum: string[] = [];
   let category: string | null = null;
   let mediaTypeRaw: string | null = null;
@@ -90,7 +100,7 @@ export function parseBmNextCliArgs(rest: string[]): ParseBmNextCliArgsResult {
 
     return {
       ok: false,
-      error: `Unexpected argument: ${a}. See !bm help next.`,
+      error: `Unexpected argument: ${a}. See ${prefix}${alias} help next.`,
     };
   }
 

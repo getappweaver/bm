@@ -16,6 +16,8 @@ export const BmSchema = z.object({
   in_queue: z.boolean(),
   consumed_at: z.number().nullable(),
   created_at: z.number(),
+  nostr_naddr: z.string().nullable(),
+  published_at: z.number().nullable(),
 });
 
 export type Bm = z.infer<typeof BmSchema>;
@@ -110,7 +112,13 @@ export const CreateBmInputSchema = z.object({
     ),
 });
 
+export const ImportBmInputSchema = CreateBmInputSchema.extend({
+  nostr_naddr: z.string().min(1).optional(),
+  published_at: z.number().int().nonnegative().optional(),
+});
+
 export type CreateBmInputRaw = z.infer<typeof CreateBmInputSchema>;
+export type ImportBmInputRaw = z.infer<typeof ImportBmInputSchema>;
 
 /** Normalized create payload: required taxonomy, media, queue; optional summary/description. */
 export type CreateBmInput = {
@@ -122,6 +130,11 @@ export type CreateBmInput = {
   in_queue: boolean;
   summary?: string;
   description?: string;
+};
+
+export type ImportBmInput = CreateBmInput & {
+  nostr_naddr?: string;
+  published_at?: number;
 };
 
 /** Create / update: trim; no silent default (AI and drafts must supply real taxonomy). */
@@ -189,6 +202,22 @@ export function normalizeCreateBmInput(raw: CreateBmInputRaw): CreateBmInput {
 
   if (raw.description != null && raw.description.trim() !== '') {
     out.description = raw.description.trim();
+  }
+
+  return out;
+}
+
+export function normalizeImportBmInput(raw: ImportBmInputRaw): ImportBmInput {
+  const out: ImportBmInput = {
+    ...normalizeCreateBmInput(raw),
+  };
+
+  if (raw.nostr_naddr != null && raw.nostr_naddr.trim() !== '') {
+    out.nostr_naddr = raw.nostr_naddr.trim();
+  }
+
+  if (raw.published_at != null) {
+    out.published_at = raw.published_at;
   }
 
   return out;

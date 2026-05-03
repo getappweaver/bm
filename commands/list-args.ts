@@ -5,9 +5,17 @@ import type { BmListFilters } from '../types';
 import { BM_LIST_FILTERS_NONE } from '../types';
 import { normalizeMediaTypeFilter } from '../types';
 
+export type BmListGroupBy = 'cats' | null;
+
 type ParseBmListCliArgsResult =
-  | { ok: true; filters: BmListFilters }
+  | { ok: true; filters: BmListFilters; groupBy: BmListGroupBy }
   | { ok: false; error: string };
+
+type ParseBmListCliArgsProps = {
+  rest: string[];
+  prefix: string;
+  alias: string;
+};
 
 function nextValue(args: string[], i: number): string | null {
   const v = args[i + 1];
@@ -19,9 +27,13 @@ function nextValue(args: string[], i: number): string | null {
   return v;
 }
 
-export function parseBmListCliArgs(rest: string[]): ParseBmListCliArgsResult {
+export function parseBmListCliArgs({
+  rest,
+  prefix,
+  alias,
+}: ParseBmListCliArgsProps): ParseBmListCliArgsResult {
   if (rest.length === 0) {
-    return { ok: true, filters: BM_LIST_FILTERS_NONE };
+    return { ok: true, filters: BM_LIST_FILTERS_NONE, groupBy: null };
   }
 
   const tagsAccum: string[] = [];
@@ -31,6 +43,7 @@ export function parseBmListCliArgs(rest: string[]): ParseBmListCliArgsResult {
   let inQueue: boolean | null = null;
   let consumed: boolean | null = null;
   let mediaType: string | null = null;
+  let groupBy: BmListGroupBy = null;
 
   for (let i = 0; i < rest.length; i++) {
     const a = rest[i]!;
@@ -172,13 +185,36 @@ export function parseBmListCliArgs(rest: string[]): ParseBmListCliArgsResult {
       continue;
     }
 
+    if (a === '--by' || a === '-b') {
+      const v = nextValue(rest, i);
+
+      if (v === null) {
+        return {
+          ok: false,
+          error: 'Missing value for --by/-b. Supported: cats',
+        };
+      }
+
+      if (v !== 'cats') {
+        return {
+          ok: false,
+          error: `Unknown --by/-b value: ${v}. Supported: cats`,
+        };
+      }
+
+      groupBy = v;
+      i += 1;
+
+      continue;
+    }
+
     if (a.startsWith('-')) {
       return { ok: false, error: `Unknown flag: ${a}` };
     }
 
     return {
       ok: false,
-      error: `Unexpected argument: ${a}. Flags only; see !bm help.`,
+      error: `Unexpected argument: ${a}. Flags only; see ${prefix}${alias} help.`,
     };
   }
 
@@ -195,5 +231,6 @@ export function parseBmListCliArgs(rest: string[]): ParseBmListCliArgsResult {
       consumed,
       media_type: mtNorm,
     },
+    groupBy,
   };
 }

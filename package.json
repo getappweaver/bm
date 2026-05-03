@@ -1,8 +1,8 @@
 {
   "name": "dm-bot-bm-plugin",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "dmBot": {
-    "coreApiVersion": "^7.0.0",
+    "coreApiVersion": "^9.0.0",
     "description": "Bookmark plugin"
   },
   "description": "Bookmark plugin",
