@@ -1,0 +1,26 @@
+# Changelog
+
+All notable changes for each version are listed under the corresponding `v*.*.*` tag.
+Tags and this file are updated by the post-commit hook when you commit with `--patch`, `--minor`, or `--major` (see CONTRIBUTING.md).
+You can also run `bun run release:changelog` to rewrite this file from tags.
+
+## [v3.1.0] - 2026-05-08
+
+- feat: improve bookmark list web filtering (6c80dd3)
+
+## [v3.0.0] - 2026-05-06
+
+- fix lint (07b327c)
+- new contrib setup script --patch (447f90d)
+- $msg (ca662d6)
+- added LICENCE --patch (e09fe5e)
+
+## [v2.0.0] - 2026-03-22
+
+- New release with media type, queue system (fcc6f6d)
+- version (51cd362)
+
+## [v1.0.0] - 2026-03-20
+
+- created by plugin:new script (2463fdc)
+- new plugin system (db67c76)

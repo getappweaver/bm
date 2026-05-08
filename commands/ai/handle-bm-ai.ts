@@ -47,6 +47,7 @@ import {
 
 export type HandleBmAiProps = {
   args: string[];
+  command: HandleBmCommandProps['command'];
   db: Database;
   identity: PluginIdentity;
   prefix: string;
@@ -60,6 +61,7 @@ export type HandleBmAiProps = {
 
 export async function handleBmAi({
   args,
+  command,
   db,
   identity,
   prefix,
@@ -401,6 +403,7 @@ export async function handleBmAi({
   if (createdDraftCount > 0 && !hasNonCreateDraft) {
     return runDraftSessionInteractive({
       args,
+      command,
       rest: args,
       db,
       identity,

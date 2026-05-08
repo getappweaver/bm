@@ -10,6 +10,7 @@ export async function handleAiCommand(
   cmd: HandleBmCommandProps,
 ): Promise<string> {
   const {
+    command,
     identity,
     prefix,
     promptFn,
@@ -30,6 +31,7 @@ export async function handleAiCommand(
 
   return handleBmAi({
     args: rest,
+    command,
     db,
     identity,
     prefix,

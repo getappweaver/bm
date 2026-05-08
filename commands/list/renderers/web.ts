@@ -11,6 +11,12 @@ type CategoryTreeNode = {
   items: BmListItem[];
 };
 
+type BookmarkRowRenderProps = {
+  representation: BmListRepresentation;
+  item: BmListItem;
+  showCategory: boolean;
+};
+
 const bmListStylesheet = {
   id: 'bm-list-web',
   cssText: `
@@ -280,11 +286,11 @@ function buildCategoryTree(items: BmListItem[]): CategoryTreeNode[] {
   );
 }
 
-function renderBookmarkRow(
-  representation: BmListRepresentation,
-  item: BmListItem,
-  opts?: { showCategory?: boolean },
-): WebNode {
+function renderBookmarkRow({
+  representation,
+  item,
+  showCategory,
+}: BookmarkRowRenderProps): WebNode {
   const badges: WebNode[] = [
     {
       type: 'element',
@@ -297,7 +303,7 @@ function renderBookmarkRow(
     },
   ];
 
-  if (opts?.showCategory) {
+  if (showCategory) {
     badges.push({
       type: 'element',
       tag: 'badge',
@@ -439,6 +445,40 @@ function renderBookmarkRow(
   };
 }
 
+function bookmarkFilterText(item: BmListItem): string {
+  return [
+    item.title,
+    item.url,
+    item.category,
+    item.tags,
+    item.media_type,
+    item.description,
+    item.summary,
+    `#${item.id}`,
+  ]
+    .filter(
+      (value): value is string => typeof value === 'string' && value.length > 0,
+    )
+    .join('\n');
+}
+
+function renderBookmarkTreeItem(props: BookmarkRowRenderProps): WebNode {
+  const { item } = props;
+
+  return {
+    type: 'element',
+    tag: 'treeItem',
+    props: {
+      id: `bm-list-item-${item.id}`,
+      filterText: bookmarkFilterText(item),
+      filterName: item.title,
+      filterPath: item.category,
+      defaultExpanded: false,
+    },
+    summary: renderBookmarkRow(props),
+  };
+}
+
 function renderCategoryTreeItem(
   representation: BmListRepresentation,
   node: CategoryTreeNode,
@@ -451,36 +491,40 @@ function renderCategoryTreeItem(
     type: 'element',
     tag: 'treeItem',
     props: {
+      id: `bm-list-category-${node.path}`,
       className: 'bm-list-category',
-      defaultExpanded: true,
+      filterText: node.path,
+      filterName: node.name,
+      filterPath: node.path,
+      defaultExpanded: false,
+    },
+    summary: {
+      type: 'element',
+      tag: 'row',
+      props: {
+        className: 'bm-list-category-summary',
+        gap: 'sm',
+        itemAlign: 'center',
+      },
+      children: [
+        {
+          type: 'element',
+          tag: 'text',
+          props: { weight: 'bold', size: 'lg' },
+          children: [{ type: 'text', value: node.name }],
+        },
+        {
+          type: 'element',
+          tag: 'badge',
+          props: {
+            label: `${countCategoryItems(node)} items`,
+            tone: 'info',
+            size: 'sm',
+          },
+        },
+      ],
     },
     children: [
-      {
-        type: 'element',
-        tag: 'row',
-        props: {
-          className: 'bm-list-category-summary',
-          gap: 'sm',
-          itemAlign: 'center',
-        },
-        children: [
-          {
-            type: 'element',
-            tag: 'text',
-            props: { weight: 'bold', size: 'lg' },
-            children: [{ type: 'text', value: node.name }],
-          },
-          {
-            type: 'element',
-            tag: 'badge',
-            props: {
-              label: `${countCategoryItems(node)} items`,
-              tone: 'info',
-              size: 'sm',
-            },
-          },
-        ],
-      },
       {
         type: 'element',
         tag: 'stack',
@@ -489,7 +533,13 @@ function renderCategoryTreeItem(
           gap: 'xs',
         },
         children: [
-          ...node.items.map((item) => renderBookmarkRow(representation, item)),
+          ...node.items.map((item) =>
+            renderBookmarkTreeItem({
+              representation,
+              item,
+              showCategory: false,
+            }),
+          ),
           ...childCategories.map((child) =>
             renderCategoryTreeItem(representation, child),
           ),
@@ -513,15 +563,33 @@ export function renderListWeb(
             props: {
               gap: 'xs',
               className: 'bm-list-tree',
+              filterable: true,
+              filterPlaceholder: 'Filter bookmarks',
             },
             children: buildCategoryTree(representation.data.items).map((node) =>
               renderCategoryTreeItem(representation, node),
             ),
           },
         ]
-      : representation.data.items.map((item) =>
-          renderBookmarkRow(representation, item, { showCategory: true }),
-        );
+      : [
+          {
+            type: 'element',
+            tag: 'tree',
+            props: {
+              gap: 'xs',
+              className: 'bm-list-tree',
+              filterable: true,
+              filterPlaceholder: 'Filter bookmarks',
+            },
+            children: representation.data.items.map((item) =>
+              renderBookmarkTreeItem({
+                representation,
+                item,
+                showCategory: true,
+              }),
+            ),
+          },
+        ];
 
   return {
     kind: 'ui',

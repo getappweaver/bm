@@ -55,6 +55,7 @@ export type HandleBmProps = {
 };
 
 export type HandleBmCommandProps = HandleBmProps & {
+  command: ReturnType<typeof getBmCommandDefinition>;
   rest: string[];
 };
 
@@ -154,6 +155,7 @@ export async function handleBm(
 
   return await adapter({
     ...params,
+    command,
     rest: normalizedArgs.slice(1),
   });
 }
