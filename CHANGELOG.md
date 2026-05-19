@@ -4,9 +4,13 @@ All notable changes for each version are listed under the corresponding `v*.*.*`
 Tags and this file are updated by the post-commit hook when you commit with `--patch`, `--minor`, or `--major` (see CONTRIBUTING.md).
 You can also run `bun run release:changelog` to rewrite this file from tags.
 
+## [v4.0.1] - 2026-05-20
+
+- chore: add plugin title metadata (53fb5e6)
+
 ## [v4.0.0] - 2026-05-19
 
-- feat: add published bookmark search widget (7157f03)
+- feat: add published bookmark search widget (a3086b0)
 
 ## [v3.1.0] - 2026-05-08
 
