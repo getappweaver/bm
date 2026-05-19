@@ -10,12 +10,12 @@ import {
 } from '@src/nostr/relay-publish';
 import { normalizePubkeyInput } from '@src/nostr/wot';
 
-import { getBm, setBmPublishedNaddr } from './db';
-import { formatBmDetail } from './format';
+import { getBm, setBmPublishedNaddr } from '../../db';
+import { formatBmDetail } from '../../format';
 
-const BM_BOOKMARK_KIND = 39701;
+export const BM_BOOKMARK_KIND = 39701;
 
-function getBookmarkIdentifier(url: string): string {
+export function getBookmarkIdentifier(url: string): string {
   return url.replace(/^https?:\/\//i, '');
 }
 
@@ -100,23 +100,21 @@ export async function publishBm({
     return `Publish failed for #${id}.\n${rejectedSummary}`;
   }
 
-  const naddr = nip19.naddrEncode({
-    identifier: getBookmarkIdentifier(bookmark.url),
-    pubkey: signedEvent.pubkey,
-    kind: BM_BOOKMARK_KIND,
-    relays: accepted.map((item) => item.relay),
-  });
+  const nevent = `nostr://${nip19.neventEncode({
+    id: signedEvent.id,
+    relays: accepted.map((item) => item.relay).slice(0, 4),
+  })}`;
 
   const updated = setBmPublishedNaddr({
     db,
     id,
-    nostrNaddr: naddr,
+    nostrNaddr: nevent,
     publishedAt: signedEvent.created_at * 1000,
   });
 
   const lines = [
     `Published #${id}.`,
-    `naddr: ${naddr}`,
+    `nevent: ${nevent}`,
     `Accepted relays: ${accepted.map((item) => item.relay).join(', ')}`,
   ];
 

@@ -178,6 +178,27 @@ export function upsertBmSearchSession(
   }
 }
 
+export function updateBmSearchSessionPageRow(props: {
+  db: Database;
+  sessionId: string;
+  page: number;
+}): void {
+  deleteExpiredBmSearchSessions(props.db);
+
+  props.db
+    .query(
+      `UPDATE bm_search_sessions
+       SET page = $page,
+           updated_at = $updatedAt
+       WHERE session_id = $sessionId`,
+    )
+    .run({
+      sessionId: props.sessionId,
+      page: props.page,
+      updatedAt: Date.now(),
+    });
+}
+
 export function getBmSearchSessionRow(
   db: Database,
   sessionId: string,

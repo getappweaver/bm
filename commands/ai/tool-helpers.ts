@@ -31,6 +31,8 @@ export function normalizePublishedSearchFilters(
   tags_any: string[];
   category: string | null;
   media_type: string | null;
+  limit: number;
+  relays: string[];
 } {
   return {
     title: call.title ?? null,
@@ -42,6 +44,8 @@ export function normalizePublishedSearchFilters(
       call.media_type !== undefined && call.media_type !== null
         ? normalizeMediaTypeFilter(call.media_type)
         : null,
+    limit: 200,
+    relays: [],
   };
 }
 

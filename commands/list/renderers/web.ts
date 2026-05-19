@@ -1,5 +1,14 @@
 import type { WebAction, WebNode, WebNodeRoot } from '@src/web/ui-schema';
 
+import { BM_BOOKMARK_KIND, getBookmarkIdentifier } from '../../publish/publish';
+import type { BmNip50RelaySupport } from '../../search/nip50';
+import {
+  buildPublishedSearchResultsTree,
+  buildPublishedSearchTabs,
+  buildPublishedSearchPlaceholderTree,
+} from '../../search/renderers/web';
+import type { BmStoredSearchSession } from '../../search/search-session';
+
 import type { BmListRepresentation } from '../representation/schema';
 
 type BmListItem = BmListRepresentation['data']['items'][number];
@@ -17,6 +26,18 @@ type BookmarkRowRenderProps = {
   showCategory: boolean;
 };
 
+type RenderListWebOptions = {
+  activeTabId: 'bm-local' | 'bm-search';
+  searchSession: BmStoredSearchSession | null;
+  nip50RelaySupport: BmNip50RelaySupport | null;
+};
+
+const PUBLISH_FALLBACK_RELAYS = [
+  'wss://relay.damus.io',
+  'wss://nos.lol',
+  'wss://relay.nostr.band',
+];
+
 const bmListStylesheet = {
   id: 'bm-list-web',
   cssText: `
@@ -24,7 +45,22 @@ const bmListStylesheet = {
       gap: 0.5rem;
     }
 
+    .web-tabs.bm-list-tabs {
+      display: grid;
+      gap: 0;
+    }
+
+    .web-tabPanel.bm-list-tab-panel {
+      display: grid;
+      gap: 0.55rem;
+      background: var(--color-panel);
+    }
+
     .web-tree.bm-list-tree {
+      gap: 0.4rem;
+    }
+
+    .web-tree.bm-search-tree {
       gap: 0.4rem;
     }
 
@@ -62,7 +98,20 @@ const bmListStylesheet = {
       padding: 0.25rem 0.25rem;
     }
 
+    .web-row.bm-search-result-row {
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.4rem;
+      padding: 0.25rem 0.25rem;
+    }
+
     .web-stack.bm-list-item-main {
+      flex: 1;
+      min-width: 0;
+      gap: 0.2rem;
+    }
+
+    .web-stack.bm-search-result-main {
       flex: 1;
       min-width: 0;
       gap: 0.2rem;
@@ -90,8 +139,90 @@ const bmListStylesheet = {
       margin-top: 0.1rem;
     }
 
+    .web-row.bm-search-result-meta {
+      align-items: center;
+      gap: 0.35rem;
+      margin-top: 0.1rem;
+    }
+
+    .web-link.bm-search-result-url {
+      overflow-wrap: anywhere;
+      word-break: break-all;
+      font-size: 0.8125rem;
+    }
+
+    .web-stack.bm-search-result-details {
+      gap: 0.25rem;
+      padding: 0.45rem 0.65rem;
+      border-left: 2px solid color-mix(in srgb, var(--color-accent) 70%, transparent);
+      background: color-mix(in srgb, var(--color-surface-alt) 94%, var(--color-accent) 6%);
+    }
+
+    .web-row.bm-search-detail-row {
+      align-items: baseline;
+      gap: 0.45rem;
+    }
+
+    .web-text.bm-search-detail-label {
+      min-width: 5.5rem;
+      font-weight: 700;
+    }
+
     .web-badge.bm-media-badge {
       color: var(--color-warning);
+    }
+
+    .web-form.bm-search-form.web-form--stacked {
+      gap: 0.35rem;
+      padding: 0.65rem;
+      border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
+      background: color-mix(in srgb, var(--color-surface-alt) 94%, var(--color-accent) 6%);
+    }
+
+    .web-form.bm-ai-prompt-form.web-form--stacked {
+      gap: 0.35rem;
+      margin-top: 0.25rem;
+      padding: 0.65rem;
+      border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
+      background: color-mix(in srgb, var(--color-surface-alt) 94%, var(--color-warning) 6%);
+    }
+
+    .web-text.bm-panel-label {
+      font-size: 0.78rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--color-text-muted);
+    }
+
+    .web-text.bm-field-label {
+      font-size: 0.74rem;
+      font-weight: 700;
+      color: var(--color-text-muted);
+    }
+
+    .web-tabs.bm-search-mode-tabs {
+      display: grid;
+      gap: 0.45rem;
+    }
+
+    .web-tabPanel.bm-search-mode-panel {
+      display: grid;
+      gap: 0.45rem;
+    }
+
+    .web-stack.bm-search-relay-support {
+      gap: 0.15rem;
+      padding: 0.45rem 0.55rem;
+      border-left: 2px solid color-mix(in srgb, var(--color-info) 70%, transparent);
+      background: color-mix(in srgb, var(--color-surface-alt) 94%, var(--color-info) 6%);
+    }
+
+    .web-stack.bm-search-empty {
+      gap: 0.25rem;
+      padding: 0.55rem 0.65rem;
+      border-left: 2px solid color-mix(in srgb, var(--color-accent) 70%, transparent);
+      background: color-mix(in srgb, var(--color-surface-alt) 94%, var(--color-accent) 6%);
     }
 
   `,
@@ -167,6 +298,70 @@ function doneBookmarkAction(
   };
 }
 
+function deleteBookmarkAction(
+  representation: BmListRepresentation,
+  id: number,
+): WebAction {
+  return {
+    type: 'command',
+    command: representation.meta.command,
+    subcommand: 'delete',
+    arguments: { id },
+    options: {},
+    refresh: listRefresh(representation),
+  };
+}
+
+function copyBookmarkIdAction(id: number): WebAction {
+  return {
+    type: 'clientAction',
+    action: 'clipboard.writeText',
+    payload: { text: `#${id}` },
+  };
+}
+
+function publishBookmarkAction(
+  representation: BmListRepresentation,
+  item: BmListItem,
+): WebAction {
+  const publishedAtSeconds = Math.floor(Date.now() / 1000);
+
+  const topicTags = item.tags
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  const allTags = [...new Set([...topicTags, item.media_type.trim()])];
+
+  return {
+    type: 'clientAction',
+    action: 'nostr.publishKind1',
+    payload: {
+      kind: BM_BOOKMARK_KIND,
+      content: item.description ?? item.summary ?? '',
+      tags: [
+        ['d', getBookmarkIdentifier(item.url)],
+        ['published_at', String(publishedAtSeconds)],
+        ['title', item.title],
+        ['m', item.media_type],
+        ['category', item.category],
+        ...allTags.map((tag) => ['t', tag]),
+      ],
+      signTitle: 'Sign Event: Publish bookmark',
+      fallbackRelays: PUBLISH_FALLBACK_RELAYS,
+      statusTitle: 'Bookmark published',
+      statusMessage: `Bookmark #${item.id}`,
+      onSuccessCommand: {
+        command: representation.meta.command,
+        subcommand: 'publish',
+        arguments: { id: item.id },
+        options: {},
+      },
+    },
+    refresh: listRefresh(representation),
+  };
+}
+
 function buildListAiCommandForm(representation: BmListRepresentation): WebNode {
   const refresh = listRefresh(representation);
 
@@ -174,7 +369,8 @@ function buildListAiCommandForm(representation: BmListRepresentation): WebNode {
     type: 'element',
     tag: 'form',
     props: {
-      className: 'web-form web-form--stacked web-form--ai-prompt',
+      className:
+        'web-form web-form--stacked web-form--ai-prompt bm-ai-prompt-form',
       action: {
         type: 'command',
         command: representation.meta.command,
@@ -188,11 +384,18 @@ function buildListAiCommandForm(representation: BmListRepresentation): WebNode {
     children: [
       {
         type: 'element',
-        tag: 'textField',
+        tag: 'text',
+        props: { className: 'bm-panel-label' },
+        children: [{ type: 'text', value: 'Edit with AI' }],
+      },
+      {
+        type: 'element',
+        tag: 'textArea',
         props: {
           formFieldName: 'prompt',
           inputPlaceholder:
             'Add, find, or edit bookmarks using a prompt or URL',
+          maxRows: 4,
           storyTargetId: 'bm-ai-prompt-text',
         },
       },
@@ -336,6 +539,22 @@ function renderBookmarkRow({
         action: showBookmarkAction(representation, item.id),
       },
     },
+    {
+      type: 'element',
+      tag: 'menuItem',
+      props: {
+        label: 'Publish',
+        action: publishBookmarkAction(representation, item),
+      },
+    },
+    {
+      type: 'element',
+      tag: 'menuItem',
+      props: {
+        label: `Copy #${item.id}`,
+        action: copyBookmarkIdAction(item.id),
+      },
+    },
   ];
 
   if (!item.in_queue && item.consumed_at === null) {
@@ -359,6 +578,16 @@ function renderBookmarkRow({
       },
     });
   }
+
+  actions.push({
+    type: 'element',
+    tag: 'menuItem',
+    props: {
+      label: 'Delete',
+      tone: 'danger',
+      action: deleteBookmarkAction(representation, item.id),
+    },
+  });
 
   return {
     type: 'element',
@@ -396,16 +625,6 @@ function renderBookmarkRow({
                 },
                 children: [{ type: 'text', value: item.title }],
               },
-              {
-                type: 'element',
-                tag: 'text',
-                props: {
-                  tone: 'muted',
-                  size: 'sm',
-                  className: 'bm-list-id',
-                },
-                children: [{ type: 'text', value: `#${item.id}` }],
-              },
             ],
           },
           {
@@ -428,7 +647,24 @@ function renderBookmarkRow({
               className: 'bm-list-meta',
               itemAlign: 'center',
             },
-            children: badges,
+            children: [
+              ...badges,
+              ...(item.nostr_naddr
+                ? [
+                    {
+                      type: 'element' as const,
+                      tag: 'link' as const,
+                      props: {
+                        href: item.nostr_naddr,
+                        external: true,
+                        tone: 'muted' as const,
+                        size: 'sm' as const,
+                      },
+                      children: [{ type: 'text' as const, value: 'published' }],
+                    },
+                  ]
+                : []),
+            ],
           },
         ],
       },
@@ -551,45 +787,46 @@ function renderCategoryTreeItem(
 
 export function renderListWeb(
   representation: BmListRepresentation,
+  options: RenderListWebOptions = {
+    activeTabId: 'bm-local',
+    searchSession: null,
+    nip50RelaySupport: null,
+  },
 ): WebNodeRoot {
   const effectiveGroupBy = representation.data.groupBy ?? 'cats';
 
-  const children: WebNode[] =
+  const localTree: WebNode =
     effectiveGroupBy === 'cats'
-      ? [
-          {
-            type: 'element',
-            tag: 'tree',
-            props: {
-              gap: 'xs',
-              className: 'bm-list-tree',
-              filterable: true,
-              filterPlaceholder: 'Filter bookmarks',
-            },
-            children: buildCategoryTree(representation.data.items).map((node) =>
-              renderCategoryTreeItem(representation, node),
-            ),
+      ? {
+          type: 'element',
+          tag: 'tree',
+          props: {
+            gap: 'xs',
+            className: 'bm-list-tree',
+            filterable: true,
+            filterPlaceholder: 'Filter bookmarks',
           },
-        ]
-      : [
-          {
-            type: 'element',
-            tag: 'tree',
-            props: {
-              gap: 'xs',
-              className: 'bm-list-tree',
-              filterable: true,
-              filterPlaceholder: 'Filter bookmarks',
-            },
-            children: representation.data.items.map((item) =>
-              renderBookmarkTreeItem({
-                representation,
-                item,
-                showCategory: true,
-              }),
-            ),
+          children: buildCategoryTree(representation.data.items).map((node) =>
+            renderCategoryTreeItem(representation, node),
+          ),
+        }
+      : {
+          type: 'element',
+          tag: 'tree',
+          props: {
+            gap: 'xs',
+            className: 'bm-list-tree',
+            filterable: true,
+            filterPlaceholder: 'Filter bookmarks',
           },
-        ];
+          children: representation.data.items.map((item) =>
+            renderBookmarkTreeItem({
+              representation,
+              item,
+              showCategory: true,
+            }),
+          ),
+        };
 
   return {
     kind: 'ui',
@@ -599,7 +836,50 @@ export function renderListWeb(
       type: 'element',
       tag: 'stack',
       props: { gap: 'md', className: 'bm-list-layout' },
-      children: [buildListAiCommandForm(representation), ...children],
+      children: [
+        {
+          type: 'element',
+          tag: 'tabs',
+          props: {
+            className: 'bm-list-tabs',
+            defaultActiveTabId: options.activeTabId,
+          },
+          children: [
+            {
+              type: 'element',
+              tag: 'tabPanel',
+              props: {
+                id: 'bm-local',
+                label: 'Local',
+                className: 'bm-list-tab-panel',
+              },
+              children: [localTree, buildListAiCommandForm(representation)],
+            },
+            {
+              type: 'element',
+              tag: 'tabPanel',
+              props: {
+                id: 'bm-search',
+                label: 'Search',
+                className: 'bm-list-tab-panel',
+              },
+              children: [
+                buildPublishedSearchTabs({
+                  command: representation.meta.command,
+                  session: options.searchSession,
+                  nip50RelaySupport: options.nip50RelaySupport,
+                }),
+                options.searchSession
+                  ? buildPublishedSearchResultsTree({
+                      command: representation.meta.command,
+                      session: options.searchSession,
+                    })
+                  : buildPublishedSearchPlaceholderTree(),
+              ],
+            },
+          ],
+        },
+      ],
     },
     stylesheets: [bmListStylesheet],
   };

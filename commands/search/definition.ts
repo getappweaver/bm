@@ -17,7 +17,20 @@ export const searchDefinition = (
       variadic: true,
     },
   ],
-  options: [],
+  options: [
+    {
+      name: 'limit',
+      flag: '--limit',
+      summary: 'Maximum relay results to fetch.',
+      kind: 'integer',
+    },
+    {
+      name: 'nostrSearchRelays',
+      flag: '--relays',
+      summary: 'Comma-separated search relays supplied by the web client.',
+      kind: 'string',
+    },
+  ],
   examples: [
     `${prefix}${alias} search rust`,
     `${prefix}${alias} search import 2`,

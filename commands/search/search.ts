@@ -4,14 +4,15 @@
 import type { Filter, NostrEvent } from 'nostr-tools';
 
 import type { PluginContext } from '@src/core/plugin';
+import { debug } from '@src/logger';
 import { fetchNip65WriteRelays } from '@src/nostr/nip65';
+import { queryNostrWithNode } from '@src/nostr/node-query';
 import { normalizePubkeyInput } from '@src/nostr/wot';
 
+import { getBmNip50RelaySupport } from './nip50';
 import type { BmSearchFilters } from './search-args';
 
 const BM_BOOKMARK_KIND = 39701;
-const SEARCH_LIMIT = 200;
-
 export const BM_SEARCH_PAGE_SIZE = 20;
 
 export function formatBmSearchNavigationHint(
@@ -54,6 +55,23 @@ export type SearchSessionFormatOptions = {
   pluginAlias?: string;
 };
 
+export function createEmptyBmSearchSession(
+  filters: BmSearchFilters,
+): BmSearchSession {
+  return {
+    filters,
+    results: [],
+    page: 1,
+    pageSize: BM_SEARCH_PAGE_SIZE,
+    rawRelayCount: 0,
+    resultCount: 0,
+    wotSorted: true,
+    titleMatchIds: [],
+    categoryMatchIds: [],
+    mediaTypeMatchIds: [],
+  };
+}
+
 export type PublishedSearchDebugInfo = {
   relayCount: number;
   relays: string[];
@@ -64,6 +82,14 @@ export type PublishedSearchDebugInfo = {
   titleMatchCount: number;
   categoryMatchCount: number;
   mediaTypeMatchCount: number;
+};
+
+type SearchPublishedBmsProps = {
+  filters: BmSearchFilters;
+  pool: PluginContext['pool'];
+  masterPubkey: string;
+  getWotScore: PluginContext['getWotScore'];
+  onDebug?: (info: PublishedSearchDebugInfo) => void;
 };
 
 function getTagValue(event: NostrEvent, name: string): string | null {
@@ -140,7 +166,7 @@ function matchesMediaType(
 function buildRelayFilter(filters: BmSearchFilters): Filter {
   const filter: Filter = {
     kinds: [BM_BOOKMARK_KIND],
-    limit: SEARCH_LIMIT,
+    limit: filters.limit ?? 200,
   };
 
   if (filters.tags_any.length > 0) {
@@ -148,6 +174,14 @@ function buildRelayFilter(filters: BmSearchFilters): Filter {
   }
 
   return filter;
+}
+
+function buildFullTextRelayFilter(filters: BmSearchFilters): Filter {
+  return {
+    kinds: [BM_BOOKMARK_KIND],
+    limit: filters.limit ?? 200,
+    search: filters.title ?? '',
+  };
 }
 
 function formatSearchBookmark(
@@ -251,25 +285,76 @@ export function getSearchSessionPage(
   );
 }
 
-export async function searchPublishedBms(props: {
-  filters: BmSearchFilters;
-  pool: PluginContext['pool'];
-  masterPubkey: string;
-  getWotScore: PluginContext['getWotScore'];
-  onDebug?: (info: PublishedSearchDebugInfo) => void;
-}): Promise<BmSearchSession | null> {
+export async function searchPublishedBms(
+  props: SearchPublishedBmsProps,
+): Promise<BmSearchSession | null> {
   const { filters, pool, masterPubkey, getWotScore, onDebug } = props;
 
-  const relays = await fetchNip65WriteRelays({
-    pool,
-    authorPubkey: normalizePubkeyInput(masterPubkey),
+  const fullTextSearch =
+    filters.title !== null && filters.tags_any.length === 0;
+
+  debug('bm published search start', {
+    mode: fullTextSearch ? 'full-text' : 'hashtag',
+    title: filters.title,
+    tagsAny: filters.tags_any,
+    category: filters.category,
+    mediaType: filters.media_type,
+    limit: filters.limit,
+    clientRelayCount: filters.relays.length,
   });
 
-  const relayFilter = buildRelayFilter(filters);
+  const relays = fullTextSearch
+    ? (
+        await getBmNip50RelaySupport({
+          pool,
+          masterPubkey,
+          relays: filters.relays,
+        })
+      ).supportedRelays
+    : await fetchNip65WriteRelays({
+        pool,
+        authorPubkey: normalizePubkeyInput(masterPubkey),
+      });
+
+  if (fullTextSearch && relays.length === 0) {
+    debug('bm full-text search no NIP-50 relays', {
+      query: filters.title,
+      clientRelayCount: filters.relays.length,
+      clientRelays: filters.relays,
+    });
+  }
+
+  const relayFilter = fullTextSearch
+    ? buildFullTextRelayFilter(filters)
+    : buildRelayFilter(filters);
+
+  debug('bm published search relay query', {
+    mode: fullTextSearch ? 'full-text' : 'hashtag',
+    relayCount: relays.length,
+    relays,
+    filter: relayFilter,
+  });
+
   const queryStartedAt = Date.now();
 
-  const events = await pool.querySync(relays, relayFilter, { maxWait: 8_000 });
+  const events =
+    relays.length === 0
+      ? []
+      : await queryNostrWithNode({
+          relays,
+          filter: relayFilter,
+          maxWait: 8_000,
+          debugLabel: `bm published ${fullTextSearch ? 'full-text' : 'hashtag'} search`,
+        });
+
   const queryDurationMs = Date.now() - queryStartedAt;
+
+  debug('bm published search relay result', {
+    mode: fullTextSearch ? 'full-text' : 'hashtag',
+    relayCount: relays.length,
+    queryDurationMs,
+    rawEventCount: events.length,
+  });
 
   const parsed = events.map((event) =>
     parseSearchBookmarkEvent(event, getWotScore),
@@ -300,6 +385,18 @@ export async function searchPublishedBms(props: {
     categoryMatchCount,
     mediaTypeMatchCount,
   });
+
+  if (fullTextSearch) {
+    debug('bm full-text search parsed result', {
+      query: filters.title,
+      parsedEventCount: parsed.length,
+      filteredEventCount: filtered.length,
+      titleMatchCount,
+      categoryMatchCount,
+      mediaTypeMatchCount,
+      sampleEventIds: filtered.slice(0, 5).map((event) => event.id),
+    });
+  }
 
   if (filtered.length === 0) {
     return null;
@@ -350,4 +447,16 @@ export async function searchPublishedBms(props: {
     categoryMatchIds,
     mediaTypeMatchIds,
   };
+}
+
+export async function searchHashtagPublishedBms(
+  props: SearchPublishedBmsProps,
+): Promise<BmSearchSession | null> {
+  return searchPublishedBms(props);
+}
+
+export async function searchFullTextPublishedBms(
+  props: SearchPublishedBmsProps,
+): Promise<BmSearchSession | null> {
+  return searchPublishedBms(props);
 }

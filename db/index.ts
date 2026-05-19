@@ -37,6 +37,7 @@ export {
   getBmSearchSessionRow,
   listBmSearchSessionResultsByIds,
   listBmSearchSessionResultsPage,
+  updateBmSearchSessionPageRow,
   upsertBmSearchSession,
 } from './search-sessions';
 

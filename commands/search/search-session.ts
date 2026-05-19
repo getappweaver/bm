@@ -10,6 +10,7 @@ import {
   listBmSearchSessionResultsByIds,
   listBmSearchSessionResultsPage,
   getBmSearchSessionRow,
+  updateBmSearchSessionPageRow,
   upsertBmSearchSession,
 } from '../../db';
 
@@ -60,7 +61,11 @@ export function updateBmSearchSessionPage(
     page,
   };
 
-  upsertBmSearchSession(db, updatedSession);
+  updateBmSearchSessionPageRow({
+    db,
+    sessionId: session.sessionId,
+    page,
+  });
 
   return updatedSession;
 }

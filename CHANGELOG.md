@@ -4,9 +4,13 @@ All notable changes for each version are listed under the corresponding `v*.*.*`
 Tags and this file are updated by the post-commit hook when you commit with `--patch`, `--minor`, or `--major` (see CONTRIBUTING.md).
 You can also run `bun run release:changelog` to rewrite this file from tags.
 
+## [v4.0.0] - 2026-05-19
+
+- feat: add published bookmark search widget (7157f03)
+
 ## [v3.1.0] - 2026-05-08
 
-- feat: improve bookmark list web filtering (6c80dd3)
+- feat: improve bookmark list web filtering (16a0f55)
 
 ## [v3.0.0] - 2026-05-06
 

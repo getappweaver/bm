@@ -1,13 +1,15 @@
 import type { BmCommandAdapter } from '../../adapter';
 
 import { parseBmListCliArgs } from '../list-args';
+import { getBmNip50RelaySupport } from '../search/nip50';
+import { getBmLastSearchSession } from '../search/search-session';
 
 import { handleListCommand } from './handler';
 import { renderListText } from './renderers/text';
 import { renderListWeb } from './renderers/web';
 import { createListRepresentation } from './representation/builder';
 
-export const adaptListCommand: BmCommandAdapter = (params) => {
+export const adaptListCommand: BmCommandAdapter = async (params) => {
   const parsed = parseBmListCliArgs({
     rest: params.rest,
     prefix: params.prefix,
@@ -51,7 +53,17 @@ export const adaptListCommand: BmCommandAdapter = (params) => {
   });
 
   if (params.source === 'web') {
-    return renderListWeb(representation);
+    const searchSession = getBmLastSearchSession(params.db);
+
+    return renderListWeb(representation, {
+      activeTabId: 'bm-local',
+      searchSession,
+      nip50RelaySupport: await getBmNip50RelaySupport({
+        pool: params.pool,
+        masterPubkey: params.masterPubkey,
+        relays: searchSession?.filters.relays ?? [],
+      }),
+    });
   }
 
   return renderListText(representation);

@@ -5,7 +5,7 @@ export const publishDefinition = (
   alias: string,
 ): SubcommandDefinition => ({
   name: 'publish',
-  summary: 'Publish one bookmark via bunker signer.',
+  summary: 'Publish one bookmark or mark it published with a Nostr event URL.',
   aliases: [],
   arguments: [
     {
@@ -14,7 +14,16 @@ export const publishDefinition = (
       kind: 'integer',
       required: true,
     },
+    {
+      name: 'nostrUrl',
+      summary: 'nostr://nevent URL for the published bookmark.',
+      kind: 'string',
+      required: false,
+    },
   ],
   options: [],
-  examples: [`${prefix}${alias} publish 4`],
+  examples: [
+    `${prefix}${alias} publish 4`,
+    `${prefix}${alias} publish 4 nostr://nevent1...`,
+  ],
 });

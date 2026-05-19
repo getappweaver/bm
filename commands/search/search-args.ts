@@ -5,6 +5,8 @@ export type BmSearchFilters = {
   tags_any: string[];
   category: string | null;
   media_type: string | null;
+  limit: number;
+  relays: string[];
 };
 
 type ParseBmSearchCliArgsResult =
@@ -26,8 +28,10 @@ export function parseBmSearchCliArgs(
 ): ParseBmSearchCliArgsResult {
   const titleTokens: string[] = [];
   const tagsAccum: string[] = [];
+  const relaysAccum: string[] = [];
   let category: string | null = null;
   let mediaType: string | null = null;
+  let limit = 200;
 
   for (let i = 0; i < rest.length; i += 1) {
     const a = rest[i]!;
@@ -78,6 +82,58 @@ export function parseBmSearchCliArgs(
       continue;
     }
 
+    if (a === '--limit') {
+      const v = nextValue(rest, i);
+
+      if (v === null) {
+        return { ok: false, error: 'Missing value for --limit.' };
+      }
+
+      const parsedLimit = parseInt(v, 10);
+
+      if (![50, 100, 200, 500].includes(parsedLimit)) {
+        return { ok: false, error: 'Limit must be one of: 50, 100, 200, 500.' };
+      }
+
+      limit = parsedLimit;
+      i += 1;
+
+      continue;
+    }
+
+    if (a === '--relays') {
+      const v = nextValue(rest, i);
+
+      if (v === null) {
+        return { ok: false, error: 'Missing value for --relays.' };
+      }
+
+      for (const raw of v.split(',')) {
+        const relay = raw.trim();
+
+        if (relay) {
+          relaysAccum.push(relay);
+        }
+      }
+
+      i += 1;
+
+      continue;
+    }
+
+    if (a === '--search') {
+      const v = nextValue(rest, i);
+
+      if (v === null) {
+        return { ok: false, error: 'Missing value for --search.' };
+      }
+
+      titleTokens.push(v.trim());
+      i += 1;
+
+      continue;
+    }
+
     if (a === '--media' || a === '-m') {
       const v = nextValue(rest, i);
 
@@ -105,6 +161,8 @@ export function parseBmSearchCliArgs(
       tags_any: [...new Set(tagsAccum)],
       category,
       media_type: normalizeMediaTypeFilter(mediaType),
+      limit,
+      relays: [...new Set(relaysAccum)],
     },
   };
 }
