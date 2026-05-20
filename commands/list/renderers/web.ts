@@ -832,6 +832,22 @@ export function renderListWeb(
     kind: 'ui',
     version: 1,
     meta: representation.meta,
+    widgetHelp: {
+      title: 'Bookmark manager',
+      body: [
+        'Keep your bookmarks tidy with the help of AI. Access them from anywhere, search public bookmarks ordered by your network, and publish yours when you want.',
+      ],
+      stories: [
+        {
+          id: 'bm-save-ai',
+          title: 'Save a bookmark with AI',
+          description:
+            'Use the Bookmarks widget AI prompt to save, summarize, categorize, and queue a resource.',
+          pluginAlias: representation.meta.command,
+          iconUrl: '/plugin-icons/bm/commands__list__renderers__list.svg',
+        },
+      ],
+    },
     tree: {
       type: 'element',
       tag: 'stack',

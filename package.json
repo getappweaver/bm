@@ -1,6 +1,6 @@
 {
   "name": "appweaver-bm-plugin",
-  "version": "4.0.2",
+  "version": "4.0.3",
   "appweaver": {
     "title": "Bookmark manager",
     "icon": "./commands/list/renderers/list.svg",
