@@ -1,8 +1,10 @@
 {
   "name": "appweaver-bm-plugin",
-  "version": "4.0.1",
-  "dmBot": {
+  "version": "4.0.2",
+  "appweaver": {
     "title": "Bookmark manager",
+    "icon": "./commands/list/renderers/list.svg",
+    "website": "https://github.com/getappweaver/bm",
     "coreApiVersion": "^9.18.0",
     "description": "Official AppWeaver Bookmark manager. Adds focused AI-powered bookmark tools, commands, and data models to an AppWeaver workspace."
   },
