@@ -2,13 +2,19 @@
 
 Bookmark plugin
 
-**Command:** `!bm`
+**Command:** `/bm`
+
+## Demo
+
+[Interactive Demo](https://getappweaver.com/bookmark-manager)
+
+![Bookmark Manager screenshot](https://getappweaver.com/screenshots/bookmark-manager.png)
 
 ---
 
 Replace this README with documentation for your plugin:
 
-- **Commands** — List each `!bm <subcommand>` and what it does.
+- **Commands** — List each `/bm <subcommand>` and what it does.
 - **Data model** — What you store (tables, main entity), and where (db.sqlite).
 - **Draft/confirm flow** — If you use drafts (e.g. AI proposes, user accepts/revises/declines), describe it here.
 - **OpenCode tools** — If the plugin exposes tools to the agent, list them and how they are used.
