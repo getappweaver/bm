@@ -769,15 +769,15 @@ function renderCategoryTreeItem(
           gap: 'xs',
         },
         children: [
+          ...childCategories.map((child) =>
+            renderCategoryTreeItem(representation, child),
+          ),
           ...node.items.map((item) =>
             renderBookmarkTreeItem({
               representation,
               item,
               showCategory: false,
             }),
-          ),
-          ...childCategories.map((child) =>
-            renderCategoryTreeItem(representation, child),
           ),
         ],
       },
