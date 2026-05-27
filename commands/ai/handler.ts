@@ -2,13 +2,15 @@
 // plugins/bm/commands/ai/handler.ts
 // ---------------------------------------------------------------------------
 
+import type { WebNodeRoot } from '@src/web/ui-schema';
+
 import type { HandleBmCommandProps } from '../../command-context';
 
 import { handleBmAi } from './handle-bm-ai';
 
 export async function handleAiCommand(
   cmd: HandleBmCommandProps,
-): Promise<string> {
+): Promise<string | WebNodeRoot> {
   const {
     command,
     identity,

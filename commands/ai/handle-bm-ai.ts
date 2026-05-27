@@ -10,11 +10,16 @@ import { getOutputString } from '@src/backends/types';
 import type { PluginIdentity } from '@src/core/plugin';
 import { debug } from '@src/logger';
 import type { MessageSource } from '@src/messaging';
+import type { WebNodeRoot } from '@src/web/ui-schema';
 
 import type { HandleBmCommandProps } from '../../command-context';
 import { buildBmPluginContextText } from '../../context';
 import { getBm, getBmByUrl, listBmsWithQueueFallback } from '../../db';
-import { createDraftSessionId, storeDraft } from '../../drafts/index';
+import {
+  createDraftSessionId,
+  listDraftsBySession,
+  storeDraft,
+} from '../../drafts/index';
 import {
   formatBms,
   formatCreateDraftList,
@@ -22,6 +27,7 @@ import {
 } from '../../format';
 import { normalizeCreateBmInput, normalizeImportBmInput } from '../../types';
 
+import { renderDraftsWeb } from '../drafts/renderers/web';
 import {
   createBmSearchSession,
   getBmSearchResultByDisplayIndex,
@@ -44,6 +50,37 @@ import {
   formatPublishedSearchSummary,
   normalizePublishedSearchFilters,
 } from './tool-helpers';
+
+const MAX_AI_TOOL_TURNS = 4;
+
+type BmAiLoopPromptProps = {
+  userPrompt: string;
+  context: string;
+  observations: string[];
+  turn: number;
+};
+
+function shouldContinueAfterReadOnly(userPrompt: string): boolean {
+  return /\b(add|accept|categorize|category|create|delete|draft|edit|insert|move|put|queue|remove|save|update)\b/i.test(
+    userPrompt,
+  );
+}
+
+function buildAiLoopPrompt({
+  userPrompt,
+  context,
+  observations,
+  turn,
+}: BmAiLoopPromptProps): string {
+  return [
+    buildSystemPrompt(userPrompt, context),
+    '',
+    `Tool observations after turn ${turn}:`,
+    observations.join('\n\n---\n\n'),
+    '',
+    'Continue from these observations. If the user asked to add, edit, move, categorize, delete, queue, or otherwise change bookmarks, output the final draft-producing JSON calls now. Use read-only calls again only if another lookup is truly required. Do not stop at a list/context/search result for a change request.',
+  ].join('\n');
+}
 
 export type HandleBmAiProps = {
   args: string[];
@@ -71,7 +108,7 @@ export async function handleBmAi({
   pool,
   masterPubkey,
   getWotScore,
-}: HandleBmAiProps): Promise<string> {
+}: HandleBmAiProps): Promise<string | WebNodeRoot> {
   const userPrompt = args.join(' ').trim();
   const alias = identity.alias;
 
@@ -79,353 +116,402 @@ export async function handleBmAi({
     return `Usage: ${prefix}${alias} ai <natural language request>`;
   }
 
-  const context = buildBmPluginContextText({ db });
-
-  const systemPrompt = buildSystemPrompt(userPrompt, context);
-  const result = await runAgent(systemPrompt);
-  const raw = getOutputString(result).trim();
-
-  if (!raw || raw === '(no output)') {
-    return 'Model returned no output. Try again or rephrase.';
-  }
-
-  const results = parseBmToolCalls(raw);
-
-  const fulfilled = results.filter(
-    (r): r is { status: 'fulfilled'; value: BmToolCall } =>
-      r.status === 'fulfilled',
-  );
-
-  if (fulfilled.length === 0) {
-    const firstRejected = results.find((r) => r.status === 'rejected');
-
-    const msg =
-      firstRejected?.status === 'rejected'
-        ? firstRejected.reason.message
-        : 'No valid JSON';
-
-    return `Failed to parse response: ${msg}`;
-  }
-
   const cmd = `${prefix}${alias}`;
-  const previews: string[] = [];
-  let hasMutatingDraft = false;
-  let createdDraftCount = 0;
-  let hasNonCreateDraft = false;
+  const context = buildBmPluginContextText({ db });
+  const observations: string[] = [];
+  let systemPrompt = buildSystemPrompt(userPrompt, context);
+  let lastReadOnlyPreviews: string[] = [];
   const sessionId = createDraftSessionId();
 
-  for (const { value } of fulfilled) {
-    if (value.type === 'list') {
-      const filters = bmListCallToFilters(value);
+  for (let turn = 1; turn <= MAX_AI_TOOL_TURNS; turn += 1) {
+    const result = await runAgent(systemPrompt);
+    const raw = getOutputString(result).trim();
 
-      const { items, expandedFromQueue } = listBmsWithQueueFallback({
-        db,
-        filters,
-      });
-
-      return items.length === 0
-        ? 'No bookmarks.'
-        : formatBms(items, { expandedFromQueue });
+    if (!raw || raw === '(no output)') {
+      return 'Model returned no output. Try again or rephrase.';
     }
 
-    if (value.type === 'context') {
-      previews.push(buildBmPluginContextText({ db }));
+    const results = parseBmToolCalls(raw);
 
-      continue;
+    const fulfilled = results.filter(
+      (r): r is { status: 'fulfilled'; value: BmToolCall } =>
+        r.status === 'fulfilled',
+    );
+
+    if (fulfilled.length === 0) {
+      const firstRejected = results.find((r) => r.status === 'rejected');
+
+      const msg =
+        firstRejected?.status === 'rejected'
+          ? firstRejected.reason.message
+          : 'No valid JSON';
+
+      return `Failed to parse response: ${msg}`;
     }
 
-    if (value.type === 'published_search') {
-      const session = await searchPublishedBms({
-        filters: normalizePublishedSearchFilters(value),
-        pool,
-        masterPubkey,
-        getWotScore,
-        onDebug: (info) => {
-          debug('bm published_search debug', info);
-        },
-      });
+    const previews: string[] = [];
+    let hasMutatingDraft = false;
+    let createdDraftCount = 0;
+    let hasNonCreateDraft = false;
 
-      if (!session) {
-        previews.push('No published bookmarks matched.');
-      } else {
-        const storedSession = createBmSearchSession(db, session);
+    for (const { value } of fulfilled) {
+      if (value.type === 'list') {
+        const filters = bmListCallToFilters(value);
 
-        previews.push(
-          formatPublishedSearchSummary({
-            sessionId: storedSession.sessionId,
-            session: storedSession,
-          }),
-        );
-      }
+        const { items, expandedFromQueue } = listBmsWithQueueFallback({
+          db,
+          filters,
+        });
 
-      continue;
-    }
+        const output =
+          items.length === 0
+            ? 'No bookmarks.'
+            : formatBms(items, { expandedFromQueue });
 
-    if (value.type === 'published_search_page') {
-      const session = getBmSearchSession(db, value.session_id);
-
-      if (!session) {
-        previews.push(
-          `Published search session not found: ${value.session_id}`,
-        );
+        previews.push(output);
 
         continue;
       }
 
-      const targetPage =
-        value.page ??
-        (value.direction === 'next'
-          ? session.page + 1
-          : value.direction === 'prev'
-            ? session.page - 1
-            : session.page);
-
-      const payload = getBmSearchSessionPageResults(
-        db,
-        value.session_id,
-        targetPage,
-      );
-
-      if (!payload) {
-        previews.push(
-          `Published search session not found: ${value.session_id}`,
-        );
+      if (value.type === 'context') {
+        previews.push(buildBmPluginContextText({ db }));
 
         continue;
       }
 
-      previews.push(
-        formatPublishedSearchResults({
-          sessionId: payload.session.sessionId,
-          pageSize: payload.session.pageSize,
-          page: targetPage,
-          results: payload.results,
-        }),
-      );
-
-      continue;
-    }
-
-    if (value.type === 'published_search_results') {
-      const byIds = value.result_ids?.length
-        ? getBmSearchSessionResultsByIds(db, value.session_id, value.result_ids)
-        : null;
-
-      const byPage =
-        !byIds && value.page
-          ? getBmSearchSessionPageResults(db, value.session_id, value.page)
-          : null;
-
-      const payload = byIds ?? byPage;
-
-      if (!payload) {
-        previews.push(
-          `Published search session not found: ${value.session_id}`,
-        );
-
-        continue;
-      }
-
-      previews.push(
-        formatPublishedSearchResults({
-          sessionId: payload.session.sessionId,
-          pageSize: payload.session.pageSize,
-          page: value.page,
-          results: payload.results,
-        }),
-      );
-
-      continue;
-    }
-
-    if (value.type === 'create_from_published_search') {
-      hasMutatingDraft = true;
-
-      const session = getBmSearchSession(db, value.session_id);
-
-      if (!session) {
-        previews.push(
-          `Published search session not found: ${value.session_id}`,
-        );
-
-        continue;
-      }
-
-      const result = getBmSearchResultByDisplayIndex(value.result_id, session);
-
-      if (!result) {
-        previews.push(
-          `Published search result not found: ${value.result_id} in ${value.session_id}.`,
-        );
-
-        continue;
-      }
-
-      const input = normalizeImportBmInput({
-        ...buildRawBookmarkInputFromSearchResult(result),
-        ...value.input_overrides,
-        ...(await buildImportedPublishedMeta({
-          result,
+      if (value.type === 'published_search') {
+        const session = await searchPublishedBms({
+          filters: normalizePublishedSearchFilters(value),
           pool,
           masterPubkey,
-        })),
-      });
+          getWotScore,
+          onDebug: (info) => {
+            debug('bm published_search debug', info);
+          },
+        });
 
-      const existing = getBmByUrl(db, input.url);
+        if (!session) {
+          previews.push('No published bookmarks matched.');
+        } else {
+          const storedSession = createBmSearchSession(db, session);
 
-      if (existing) {
+          previews.push(
+            formatPublishedSearchSummary({
+              sessionId: storedSession.sessionId,
+              session: storedSession,
+            }),
+          );
+        }
+
+        continue;
+      }
+
+      if (value.type === 'published_search_page') {
+        const session = getBmSearchSession(db, value.session_id);
+
+        if (!session) {
+          previews.push(
+            `Published search session not found: ${value.session_id}`,
+          );
+
+          continue;
+        }
+
+        const targetPage =
+          value.page ??
+          (value.direction === 'next'
+            ? session.page + 1
+            : value.direction === 'prev'
+              ? session.page - 1
+              : session.page);
+
+        const payload = getBmSearchSessionPageResults(
+          db,
+          value.session_id,
+          targetPage,
+        );
+
+        if (!payload) {
+          previews.push(
+            `Published search session not found: ${value.session_id}`,
+          );
+
+          continue;
+        }
+
         previews.push(
-          formatExistingBookmarkDuplicate({
-            existing,
-            resultId: value.result_id,
+          formatPublishedSearchResults({
+            sessionId: payload.session.sessionId,
+            pageSize: payload.session.pageSize,
+            page: targetPage,
+            results: payload.results,
           }),
         );
 
         continue;
       }
 
-      const draftId = storeDraft(db, {
-        sessionId,
-        kind: 'create',
-        input,
-        originalPrompt: value.original_prompt,
-      });
+      if (value.type === 'published_search_results') {
+        const byIds = value.result_ids?.length
+          ? getBmSearchSessionResultsByIds(
+              db,
+              value.session_id,
+              value.result_ids,
+            )
+          : null;
 
-      createdDraftCount += 1;
+        const byPage =
+          !byIds && value.page
+            ? getBmSearchSessionPageResults(db, value.session_id, value.page)
+            : null;
 
-      previews.push(
-        [
-          'Create from published search:',
-          '',
-          formatCreateDraftList(input),
-          '',
-          `Draft ID: ${draftId}`,
-          formatDraftReply(cmd, draftId, 'create'),
-        ].join('\n'),
-      );
+        const payload = byIds ?? byPage;
 
-      continue;
-    }
+        if (!payload) {
+          previews.push(
+            `Published search session not found: ${value.session_id}`,
+          );
 
-    if (value.type === 'create') {
-      hasMutatingDraft = true;
+          continue;
+        }
 
-      const input = normalizeCreateBmInput(value.input);
-
-      const draftId = storeDraft(db, {
-        sessionId,
-        kind: 'create',
-        input,
-        originalPrompt: value.original_prompt,
-      });
-
-      createdDraftCount += 1;
-
-      previews.push(
-        [
-          'Create:',
-          '',
-          formatCreateDraftList(input),
-          '',
-          `Draft ID: ${draftId}`,
-          formatDraftReply(cmd, draftId, 'create'),
-        ].join('\n'),
-      );
-    } else if (value.type === 'update') {
-      hasMutatingDraft = true;
-      hasNonCreateDraft = true;
-
-      const existing = getBm(db, value.input.id);
-
-      if (!existing) {
         previews.push(
-          `Bookmark not found: ${value.input.id}. Call list first.`,
+          formatPublishedSearchResults({
+            sessionId: payload.session.sessionId,
+            pageSize: payload.session.pageSize,
+            page: value.page,
+            results: payload.results,
+          }),
         );
 
         continue;
       }
 
-      const draftId = storeDraft(db, {
-        sessionId,
-        kind: 'update',
-        input: value.input,
-        originalPrompt: value.original_prompt,
-      });
+      if (value.type === 'create_from_published_search') {
+        hasMutatingDraft = true;
 
-      previews.push(
-        [
-          `Update #${value.input.id}: "${existing.title}" (${existing.url})`,
-          '',
-          `Draft ID: ${draftId}`,
-          formatDraftReply(cmd, draftId, 'update'),
-        ].join('\n'),
-      );
-    } else if (value.type === 'delete') {
-      hasMutatingDraft = true;
-      hasNonCreateDraft = true;
+        const session = getBmSearchSession(db, value.session_id);
 
-      const item = getBm(db, value.input.id);
+        if (!session) {
+          previews.push(
+            `Published search session not found: ${value.session_id}`,
+          );
 
-      if (!item) {
+          continue;
+        }
+
+        const result = getBmSearchResultByDisplayIndex(
+          value.result_id,
+          session,
+        );
+
+        if (!result) {
+          previews.push(
+            `Published search result not found: ${value.result_id} in ${value.session_id}.`,
+          );
+
+          continue;
+        }
+
+        const input = normalizeImportBmInput({
+          ...buildRawBookmarkInputFromSearchResult(result),
+          ...value.input_overrides,
+          ...(await buildImportedPublishedMeta({
+            result,
+            pool,
+            masterPubkey,
+          })),
+        });
+
+        const existing = getBmByUrl(db, input.url);
+
+        if (existing) {
+          previews.push(
+            formatExistingBookmarkDuplicate({
+              existing,
+              resultId: value.result_id,
+            }),
+          );
+
+          continue;
+        }
+
+        const draftId = storeDraft(db, {
+          sessionId,
+          kind: 'create',
+          input,
+          originalPrompt: value.original_prompt,
+        });
+
+        createdDraftCount += 1;
+
         previews.push(
-          `Bookmark not found: ${value.input.id}. Call list first.`,
+          [
+            'Create from published search:',
+            '',
+            formatCreateDraftList(input),
+            '',
+            `Draft ID: ${draftId}`,
+            formatDraftReply(cmd, draftId, 'create'),
+          ].join('\n'),
         );
 
         continue;
       }
 
-      const draftId = storeDraft(db, {
-        sessionId,
-        kind: 'delete',
-        input: { id: value.input.id },
-        originalPrompt: value.original_prompt,
-      });
+      if (value.type === 'create') {
+        hasMutatingDraft = true;
 
-      previews.push(
-        [
-          `Delete #${value.input.id}: "${item.title}" (${item.url})`,
-          '',
-          `Draft ID: ${draftId}`,
-          formatDraftReply(cmd, draftId, 'delete'),
-        ].join('\n'),
-      );
+        const input = normalizeCreateBmInput(value.input);
+
+        const draftId = storeDraft(db, {
+          sessionId,
+          kind: 'create',
+          input,
+          originalPrompt: value.original_prompt,
+        });
+
+        createdDraftCount += 1;
+
+        previews.push(
+          [
+            'Create:',
+            '',
+            formatCreateDraftList(input),
+            '',
+            `Draft ID: ${draftId}`,
+            formatDraftReply(cmd, draftId, 'create'),
+          ].join('\n'),
+        );
+      } else if (value.type === 'update') {
+        hasMutatingDraft = true;
+        hasNonCreateDraft = true;
+
+        const existing = getBm(db, value.input.id);
+
+        if (!existing) {
+          previews.push(
+            `Bookmark not found: ${value.input.id}. Call list first.`,
+          );
+
+          continue;
+        }
+
+        const draftId = storeDraft(db, {
+          sessionId,
+          kind: 'update',
+          input: value.input,
+          originalPrompt: value.original_prompt,
+        });
+
+        previews.push(
+          [
+            `Update #${value.input.id}: "${existing.title}" (${existing.url})`,
+            '',
+            `Draft ID: ${draftId}`,
+            formatDraftReply(cmd, draftId, 'update'),
+          ].join('\n'),
+        );
+      } else if (value.type === 'delete') {
+        hasMutatingDraft = true;
+        hasNonCreateDraft = true;
+
+        const item = getBm(db, value.input.id);
+
+        if (!item) {
+          previews.push(
+            `Bookmark not found: ${value.input.id}. Call list first.`,
+          );
+
+          continue;
+        }
+
+        const draftId = storeDraft(db, {
+          sessionId,
+          kind: 'delete',
+          input: { id: value.input.id },
+          originalPrompt: value.original_prompt,
+        });
+
+        previews.push(
+          [
+            `Delete #${value.input.id}: "${item.title}" (${item.url})`,
+            '',
+            `Draft ID: ${draftId}`,
+            formatDraftReply(cmd, draftId, 'delete'),
+          ].join('\n'),
+        );
+      }
     }
-  }
 
-  if (previews.length === 0) {
-    return 'No operations to show.';
-  }
+    if (previews.length === 0) {
+      return 'No operations to show.';
+    }
 
-  if (!hasMutatingDraft) {
-    return previews.join('\n\n');
-  }
+    if (hasMutatingDraft) {
+      const sessionDrafts = listDraftsBySession(db, sessionId);
 
-  if (createdDraftCount > 0 && !hasNonCreateDraft) {
-    return runDraftSessionInteractive({
-      args,
-      command,
-      rest: args,
-      db,
-      identity,
-      prefix,
-      source,
-      pool,
-      masterPubkey,
-      runAgent,
-      sendReply: async () => undefined,
-      promptFn,
-      getWotScore,
-      signWithBunker: async () => {
-        throw new Error('signWithBunker is not available in bm ai session');
-      },
-      helpText: () => [],
-      sessionId,
+      if (source === 'web' && sessionDrafts.length > 0) {
+        return renderDraftsWeb({
+          command: alias,
+          drafts: sessionDrafts,
+          getBookmarkById: (id) => getBm(db, id),
+        });
+      }
+
+      if (sessionDrafts.length === 0) {
+        return previews.join('\n\n');
+      }
+
+      if (createdDraftCount > 0 && !hasNonCreateDraft) {
+        return runDraftSessionInteractive({
+          args,
+          command,
+          rest: args,
+          db,
+          identity,
+          prefix,
+          source,
+          pool,
+          masterPubkey,
+          runAgent,
+          sendReply: async () => undefined,
+          promptFn,
+          getWotScore,
+          signWithBunker: async () => {
+            throw new Error('signWithBunker is not available in bm ai session');
+          },
+          helpText: () => [],
+          sessionId,
+        });
+      }
+
+      return [
+        `You can accept all: ${cmd} accept all`,
+        '',
+        previews.join('\n\n'),
+      ].join('\n');
+    }
+
+    lastReadOnlyPreviews = previews;
+
+    if (!shouldContinueAfterReadOnly(userPrompt)) {
+      return previews.join('\n\n');
+    }
+
+    observations.push(...previews);
+
+    systemPrompt = buildAiLoopPrompt({
+      userPrompt,
+      context,
+      observations,
+      turn,
     });
   }
 
   return [
-    `You can accept all: ${cmd} accept all`,
+    'No draft was created after inspecting bookmarks. Try making the requested create/update/delete operation more explicit.',
     '',
-    previews.join('\n\n'),
+    lastReadOnlyPreviews.join('\n\n'),
   ].join('\n');
 }

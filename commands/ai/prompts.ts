@@ -27,6 +27,8 @@ export function buildSystemPrompt(userPrompt: string, context: string): string {
     'Imported published bookmarks preserve source metadata like nostr_naddr when possible; prefer create_from_published_search over manual re-creation so this source link is kept.',
     'Prefer "published_search" for discovery, recommendation, browsing, search, or find requests like "find me something to read/watch/listen", "search bookmarks", or "recommend something", unless the user clearly says local/my/saved bookmarks or asks about queue/consumed status.',
     'Use "list" only for local inventory requests like "show my bookmarks", "what is in my queue", "what have I saved", or when the user needs local ids.',
+    'For change requests, list/context/published_search calls are only intermediate discovery. The final answer must include draft-producing calls: create, update, delete, or create_from_published_search.',
+    'When the user asks to add a URL while moving related existing bookmarks into a category, emit both an update call for the existing bookmark id and a create call for the new URL using the same chosen category.',
     'For discovery or retrieval requests, emit a single best retrieval call first (usually one "published_search" or one "list"), not multiple alternative retrieval calls in one response.',
     'When you recommend published bookmarks to the user, include the URL for every recommended item, not just the title.',
   ].join('\n');

@@ -1,4 +1,5 @@
 import type { BmCommandAdapter } from '../../adapter';
+import { getBm } from '../../db';
 import { listDrafts } from '../../drafts';
 import { BM_LIST_FILTERS_NONE } from '../../types';
 
@@ -22,6 +23,7 @@ export const adaptSearchCommand: BmCommandAdapter = async (params) => {
     return renderDraftsWeb({
       command: params.identity.alias,
       drafts: listDrafts(params.db),
+      getBookmarkById: (id) => getBm(params.db, id),
     });
   }
 

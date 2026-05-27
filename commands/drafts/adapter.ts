@@ -1,4 +1,5 @@
 import type { BmCommandAdapter } from '../../adapter';
+import { getBm } from '../../db';
 import { getDraft, listDrafts } from '../../drafts';
 
 import { handleDraftsCommand } from './handler';
@@ -23,11 +24,13 @@ export const adaptDraftsCommand: BmCommandAdapter = (params) => {
     return renderDraftsWeb({
       command: params.identity.alias,
       drafts: draft ? [draft] : [],
+      getBookmarkById: (id) => getBm(params.db, id),
     });
   }
 
   return renderDraftsWeb({
     command: params.identity.alias,
     drafts: listDrafts(params.db),
+    getBookmarkById: (id) => getBm(params.db, id),
   });
 };

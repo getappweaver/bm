@@ -4,9 +4,13 @@ All notable changes for each version are listed under the corresponding `v*.*.*`
 Tags and this file are updated by the post-commit hook when you commit with `--patch`, `--minor`, or `--major` (see CONTRIBUTING.md).
 You can also run `bun run release:changelog` to rewrite this file from tags.
 
+## [v4.1.0] - 2026-05-27
+
+- feat: improve bookmark AI draft flow (c0f5e14)
+
 ## [v4.0.5] - 2026-05-27
 
-- fix: show bookmark categories before entries (aae2755)
+- fix: show bookmark categories before entries (d0cfe25)
 
 ## [v4.0.4] - 2026-05-23
 
