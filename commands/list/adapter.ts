@@ -26,10 +26,6 @@ export const adaptListCommand: BmCommandAdapter = async (params) => {
     groupBy: parsed.groupBy,
   });
 
-  if (result.type === 'empty') {
-    return 'No bookmarks.';
-  }
-
   const representation = createListRepresentation({
     command: params.identity.alias,
     subcommand: 'list',
@@ -64,6 +60,10 @@ export const adaptListCommand: BmCommandAdapter = async (params) => {
         relays: searchSession?.filters.relays ?? [],
       }),
     });
+  }
+
+  if (result.type === 'empty') {
+    return 'No bookmarks.';
   }
 
   return renderListText(representation);

@@ -225,6 +225,13 @@ const bmListStylesheet = {
       background: color-mix(in srgb, var(--color-surface-alt) 94%, var(--color-accent) 6%);
     }
 
+    .web-stack.bm-list-empty {
+      gap: 0.25rem;
+      padding: 0.55rem 0.65rem;
+      border-left: 2px solid color-mix(in srgb, var(--color-warning) 70%, transparent);
+      background: color-mix(in srgb, var(--color-surface-alt) 94%, var(--color-warning) 6%);
+    }
+
   `,
 } as const;
 
@@ -785,6 +792,58 @@ function renderCategoryTreeItem(
   };
 }
 
+function buildLocalEmptyTree(): WebNode {
+  return {
+    type: 'element',
+    tag: 'tree',
+    props: {
+      gap: 'xs',
+      className: 'bm-list-tree',
+      filterable: true,
+      filterPlaceholder: 'Filter bookmarks',
+    },
+    children: [
+      {
+        type: 'element',
+        tag: 'treeItem',
+        props: {
+          id: 'bm-list-empty',
+          defaultExpanded: true,
+          filterText: 'No bookmarks yet',
+          filterName: 'No bookmarks',
+        },
+        summary: {
+          type: 'element',
+          tag: 'text',
+          props: { tone: 'muted', weight: 'semibold' },
+          children: [{ type: 'text', value: 'No bookmarks.' }],
+        },
+        children: [
+          {
+            type: 'element',
+            tag: 'stack',
+            props: { className: 'bm-list-empty' },
+            children: [
+              {
+                type: 'element',
+                tag: 'text',
+                props: { tone: 'muted', size: 'sm' },
+                children: [
+                  {
+                    type: 'text',
+                    value:
+                      'Use the AI form below to save your first bookmark, or switch to Search to discover published bookmarks.',
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
 export function renderListWeb(
   representation: BmListRepresentation,
   options: RenderListWebOptions = {
@@ -796,37 +855,39 @@ export function renderListWeb(
   const effectiveGroupBy = representation.data.groupBy ?? 'cats';
 
   const localTree: WebNode =
-    effectiveGroupBy === 'cats'
-      ? {
-          type: 'element',
-          tag: 'tree',
-          props: {
-            gap: 'xs',
-            className: 'bm-list-tree',
-            filterable: true,
-            filterPlaceholder: 'Filter bookmarks',
-          },
-          children: buildCategoryTree(representation.data.items).map((node) =>
-            renderCategoryTreeItem(representation, node),
-          ),
-        }
-      : {
-          type: 'element',
-          tag: 'tree',
-          props: {
-            gap: 'xs',
-            className: 'bm-list-tree',
-            filterable: true,
-            filterPlaceholder: 'Filter bookmarks',
-          },
-          children: representation.data.items.map((item) =>
-            renderBookmarkTreeItem({
-              representation,
-              item,
-              showCategory: true,
-            }),
-          ),
-        };
+    representation.data.items.length === 0
+      ? buildLocalEmptyTree()
+      : effectiveGroupBy === 'cats'
+        ? {
+            type: 'element',
+            tag: 'tree',
+            props: {
+              gap: 'xs',
+              className: 'bm-list-tree',
+              filterable: true,
+              filterPlaceholder: 'Filter bookmarks',
+            },
+            children: buildCategoryTree(representation.data.items).map((node) =>
+              renderCategoryTreeItem(representation, node),
+            ),
+          }
+        : {
+            type: 'element',
+            tag: 'tree',
+            props: {
+              gap: 'xs',
+              className: 'bm-list-tree',
+              filterable: true,
+              filterPlaceholder: 'Filter bookmarks',
+            },
+            children: representation.data.items.map((item) =>
+              renderBookmarkTreeItem({
+                representation,
+                item,
+                showCategory: true,
+              }),
+            ),
+          };
 
   return {
     kind: 'ui',
