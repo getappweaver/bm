@@ -245,6 +245,56 @@ function buildSaveBookmarkStory(params: {
         },
       },
       {
+        type: 'instruction',
+        text: 'Expand tech, then nostr, to reveal the saved bookmark in the list.',
+        showcase: {
+          title: 'The saved resource lands in its category',
+          description:
+            'Accepted drafts become normal bookmark records, grouped under the category chosen by the plugin.',
+        },
+      },
+      {
+        type: 'focus_target',
+        target: {
+          type: 'web_node',
+          targetId: 'bm-list-category-tech',
+        },
+      },
+      {
+        type: 'wait_for_action',
+        match: {
+          type: 'target_clicked',
+          targetId: 'bm-list-category-tech',
+        },
+      },
+      {
+        type: 'focus_target',
+        target: {
+          type: 'web_node',
+          targetId: 'bm-list-category-tech/nostr',
+        },
+      },
+      {
+        type: 'wait_for_action',
+        match: {
+          type: 'target_clicked',
+          targetId: 'bm-list-category-tech/nostr',
+        },
+      },
+      {
+        type: 'focus_target',
+        target: {
+          type: 'web_node',
+          targetId: `bm-list-item-${savedBookmark.id}`,
+        },
+        showcase: {
+          title: 'Ready to read later',
+          description:
+            'The Nostr bookmark is visible with its media type and queued status, ready for filtering, opening, or publishing later.',
+          delayMs: 2400,
+        },
+      },
+      {
         type: 'complete',
         cleanup: {
           closeWidgets: [

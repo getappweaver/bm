@@ -246,6 +246,10 @@ function mediaTypeLabel(mediaType: string): string {
     return `🎥 ${mediaType}`;
   }
 
+  if (normalized === 'listen') {
+    return `🎧 ${mediaType}`;
+  }
+
   return mediaType;
 }
 
@@ -603,6 +607,7 @@ function renderBookmarkRow({
       gap: 'sm',
       className: 'bm-list-item-row',
       itemAlign: 'start',
+      storyTargetId: `bm-list-item-${item.id}`,
     },
     children: [
       {
@@ -740,6 +745,7 @@ function renderCategoryTreeItem(
       filterName: node.name,
       filterPath: node.path,
       defaultExpanded: false,
+      storyTargetId: `bm-list-category-${node.path}`,
     },
     summary: {
       type: 'element',

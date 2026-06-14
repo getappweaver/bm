@@ -8,7 +8,7 @@ Bookmark plugin
 
 [Interactive Demo](https://getappweaver.com/bookmark-manager)
 
-![Bookmark Manager screenshot](https://getappweaver.com/screenshots/bookmark-manager.png)
+![Add a bookmark with AI](https://getappweaver.com/gifs/bookmark-add-new-ai.gif)
 
 ---
 

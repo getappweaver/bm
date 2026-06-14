@@ -361,7 +361,7 @@ export function buildPublishedSearchPlaceholderTree(): WebNode {
                   {
                     type: 'text',
                     value:
-                      'Latest WoT bookmarks can use this same flat tree once the backend supports it.',
+                      'Search results are ranked by WoT score when available.',
                   },
                 ],
               },
