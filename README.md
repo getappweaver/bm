@@ -6,7 +6,7 @@ Bookmark plugin
 
 ## Demo
 
-[Interactive Demo](https://getappweaver.com/bookmark-manager)
+[Interactive Demo](https://getappweaver.com/apps/bookmark-manager)
 
 ![Add a bookmark with AI](https://getappweaver.com/gifs/bookmark-add-new-ai.gif)
 

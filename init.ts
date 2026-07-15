@@ -67,7 +67,7 @@ export const BmPlugin: BotPlugin = {
       runAgent: context.runAgent,
       sendReply: context.sendReply ?? BmPluginContext.sendReply,
       promptFn: context.promptFn ?? BmPluginContext.promptFn,
-      getWotScore: BmPluginContext.getWotScore,
+      getWotScore: BmPluginContext.wot.getWotScore,
       signWithBunker: BmPluginContext.signWithBunker,
       helpText: (a, p) => BmPlugin.helpText(a, p),
     });

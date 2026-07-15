@@ -32,11 +32,7 @@ type RenderListWebOptions = {
   nip50RelaySupport: BmNip50RelaySupport | null;
 };
 
-const PUBLISH_FALLBACK_RELAYS = [
-  'wss://relay.damus.io',
-  'wss://nos.lol',
-  'wss://relay.nostr.band',
-];
+const PUBLISH_FALLBACK_RELAYS = ['wss://nos.lol', 'wss://relay.nostr.band'];
 
 const bmListStylesheet = {
   id: 'bm-list-web',

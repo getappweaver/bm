@@ -4,9 +4,13 @@ All notable changes for each version are listed under the corresponding `v*.*.*`
 Tags and this file are updated by the post-commit hook when you commit with `--patch`, `--minor`, or `--major` (see CONTRIBUTING.md).
 You can also run `bun run release:changelog` to rewrite this file from tags.
 
+## [v4.2.1] - 2026-07-15
+
+- fix: update bookmark integration and relay fallbacks (0b3c92b)
+
 ## [v4.2.0] - 2026-06-14
 
-- feat: improve bookmark story demos (e14c202)
+- feat: improve bookmark story demos (55fbf2b)
 
 ## [v4.1.1] - 2026-05-30
 
