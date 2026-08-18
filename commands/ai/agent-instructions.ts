@@ -11,7 +11,7 @@ For published bookmark discovery, use \`published_search\`, then \`published_sea
 Use \`published_search\` when the user wants recommendations, bookmarks from relays, discovery beyond the local DB, or uses words like search/find/discover/recommend. The call returns a search session; keep its \`session_id\` and page through results with \`published_search_page\` instead of re-running the search.
 Published bookmark data is often sparse. Tags are the strongest relay-side signal. Do not rely on the custom \`m\` media_type tag as a required server-side filter; many good bookmarks omit it.
 If a published search returns only a small result set, trust those candidates instead of over-filtering them client-side.
-For requests like "find me something to read/watch/listen" or general discovery, prefer \`published_search\` unless the user clearly says local/my/saved bookmarks or asks for queue/consumed/local-id information.
+For requests like "find me something to read/watch/listen", "find me an app", or general discovery, prefer \`published_search\` unless the user clearly says local/my/saved bookmarks or asks for queue/consumed/local-id information.
 Use \`list\` only for the local collection.
 For a retrieval request, emit one best retrieval call first rather than multiple competing \`list\` or \`published_search\` calls.
 When you recommend published bookmarks to the user, include the URL for every recommended item.

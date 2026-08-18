@@ -9,6 +9,13 @@ export {
 } from './counts';
 
 export {
+  KNOWN_MEDIA_TYPES,
+  knownMediaTypesText,
+  mediaTypeLabel,
+} from './media-type';
+export type { KnownMediaType } from './media-type';
+
+export {
   formatCreateDraftList,
   formatDraftReply,
   hasDraftChildren,

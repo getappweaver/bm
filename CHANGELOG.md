@@ -4,9 +4,13 @@ All notable changes for each version are listed under the corresponding `v*.*.*`
 Tags and this file are updated by the post-commit hook when you commit with `--patch`, `--minor`, or `--major` (see CONTRIBUTING.md).
 You can also run `bun run release:changelog` to rewrite this file from tags.
 
+## [v4.3.0] - 2026-08-18
+
+- feat: promote canonical media types and shared labels (cf0e4e7)
+
 ## [v4.2.1] - 2026-07-15
 
-- fix: update bookmark integration and relay fallbacks (0b3c92b)
+- fix: update bookmark integration and relay fallbacks (a132e67)
 
 ## [v4.2.0] - 2026-06-14
 

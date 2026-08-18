@@ -1,5 +1,7 @@
 import type { WebNode, WebNodeRoot } from '@src/web/ui-schema';
 
+import { mediaTypeLabel } from '../../../format';
+
 import type { BmDetailRepresentation } from '../representation/schema';
 
 const bmDetailStylesheet = {
@@ -69,20 +71,6 @@ const bmDetailStylesheet = {
     }
   `,
 } as const;
-
-function mediaTypeLabel(mediaType: string): string {
-  const normalized = mediaType.trim().toLowerCase();
-
-  if (normalized === 'read') {
-    return `📖 ${mediaType}`;
-  }
-
-  if (normalized === 'watch') {
-    return `🎥 ${mediaType}`;
-  }
-
-  return mediaType;
-}
 
 function formatDate(timestamp: number | null): string {
   if (timestamp === null) {

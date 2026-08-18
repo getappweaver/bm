@@ -4,6 +4,7 @@
 
 import { z } from 'zod';
 
+import { knownMediaTypesText } from '../../format';
 import { CreateBmInputSchema, UpdateBmInputSchema } from '../../types';
 
 const CreateBmInputOverrideSchema = z.object({
@@ -63,7 +64,7 @@ const BmListCallSchema = z.object({
     .nullable()
     .optional()
     .describe(
-      'Exact match on stored media_type (lowercase), e.g. read, watch, listen. Omit or null for all.',
+      `Exact match on stored media_type (lowercase), e.g. ${knownMediaTypesText()}. Omit or null for all.`,
     ),
 });
 
