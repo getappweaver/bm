@@ -1,5 +1,7 @@
 import type { WebNode } from '@src/web/ui-schema';
 
+import { bookmarkFaviconNode } from '../../../format';
+
 import type { BmNip50RelaySupport } from '../nip50';
 import type { BmStoredSearchSession } from '../search-session';
 
@@ -208,14 +210,12 @@ function buildFullTextSearchForm({
                   ],
                 },
                 ...(supportedRelays.length > 0
-                  ? supportedRelays.map(
-                      (relay): WebNode => ({
-                        type: 'element',
-                        tag: 'text',
-                        props: { size: 'sm', className: 'bm-search-relay-url' },
-                        children: [{ type: 'text', value: relay }],
-                      }),
-                    )
+                  ? supportedRelays.map((relay): WebNode => ({
+                      type: 'element',
+                      tag: 'text',
+                      props: { size: 'sm', className: 'bm-search-relay-url' },
+                      children: [{ type: 'text', value: relay }],
+                    }))
                   : [
                       {
                         type: 'element' as const,
@@ -540,6 +540,7 @@ function renderSearchResultTreeItem({
   const score = item.wotScore === null ? 'n/a' : item.wotScore.toFixed(2);
   const title = item.title ?? '(untitled bookmark)';
   const askAiAction = askAiAboutSearchResultAction(item);
+  const favicon = bookmarkFaviconNode(item.url);
 
   const titleNode: WebNode = item.url
     ? {
@@ -581,8 +582,13 @@ function renderSearchResultTreeItem({
             {
               type: 'element',
               tag: 'row',
-              props: { gap: 'xs', itemAlign: 'baseline' },
+              props: {
+                gap: 'xs',
+                itemAlign: 'baseline',
+                className: 'bm-search-result-title-row',
+              },
               children: [
+                ...(favicon ? [favicon] : []),
                 titleNode,
                 {
                   type: 'element',

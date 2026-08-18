@@ -1,6 +1,6 @@
 import type { WebNode, WebNodeRoot } from '@src/web/ui-schema';
 
-import { mediaTypeLabel } from '../../../format';
+import { bookmarkFaviconNode, mediaTypeLabel } from '../../../format';
 
 import type { BmDetailRepresentation } from '../representation/schema';
 
@@ -17,11 +17,25 @@ const bmDetailStylesheet = {
       gap: 0.5rem;
       padding-bottom: 0.5rem;
       border-bottom: 1px solid var(--color-border, currentColor);
+      flex-wrap: nowrap;
+    }
+
+    .web-row.bm-detail-title-row .web-link {
+      min-width: 0;
     }
 
     .web-link.bm-detail-title {
       font-size: 1.125rem;
       font-weight: 600;
+    }
+
+    .web-image.bm-favicon {
+      width: 1rem;
+      height: 1rem;
+      flex-shrink: 0;
+      align-self: flex-start;
+      object-fit: contain;
+      margin-top: 0.1rem;
     }
 
     .web-text.bm-detail-id {
@@ -196,6 +210,8 @@ export function renderDetailWeb(
 ): WebNodeRoot {
   const bm = representation.data.bookmark;
 
+  const favicon = bookmarkFaviconNode(bm.url);
+
   const metaChildren: WebNode[] = [
     // URL
     metaRow('URL', {
@@ -350,6 +366,7 @@ export function renderDetailWeb(
             itemAlign: 'start' as const,
           },
           children: [
+            ...(favicon ? [favicon] : []),
             {
               type: 'element',
               tag: 'link',

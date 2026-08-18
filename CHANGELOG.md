@@ -4,9 +4,13 @@ All notable changes for each version are listed under the corresponding `v*.*.*`
 Tags and this file are updated by the post-commit hook when you commit with `--patch`, `--minor`, or `--major` (see CONTRIBUTING.md).
 You can also run `bun run release:changelog` to rewrite this file from tags.
 
+## [v4.5.0] - 2026-08-18
+
+- feat: display favicon using duckduckgo API (b65e366)
+
 ## [v4.4.0] - 2026-08-18
 
-- feat: add media-type filter to bookmark list widget (bc4b920)
+- feat: add media-type filter to bookmark list widget (5798324)
 
 ## [v4.3.0] - 2026-08-18
 

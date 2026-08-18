@@ -1,6 +1,10 @@
 import type { WebAction, WebNode, WebNodeRoot } from '@src/web/ui-schema';
 
-import { KNOWN_MEDIA_TYPES, mediaTypeLabel } from '../../../format';
+import {
+  KNOWN_MEDIA_TYPES,
+  bookmarkFaviconNode,
+  mediaTypeLabel,
+} from '../../../format';
 
 import { BM_BOOKMARK_KIND, getBookmarkIdentifier } from '../../publish/publish';
 import type { BmNip50RelaySupport } from '../../search/nip50';
@@ -135,11 +139,34 @@ const bmListStylesheet = {
     .web-row.bm-list-item-title-row {
       align-items: baseline;
       gap: 0.35rem;
+      flex-wrap: nowrap;
+    }
+
+    .web-row.bm-list-item-title-row .web-link {
+      min-width: 0;
+    }
+
+    .web-row.bm-search-result-title-row {
+      flex-wrap: nowrap;
+    }
+
+    .web-row.bm-search-result-title-row .web-link,
+    .web-row.bm-search-result-title-row .web-text {
+      min-width: 0;
     }
 
     .web-text.bm-list-id {
       flex-shrink: 0;
       font-size: 0.75rem;
+    }
+
+    .web-image.bm-favicon {
+      width: 1rem;
+      height: 1rem;
+      flex-shrink: 0;
+      align-self: flex-start;
+      object-fit: contain;
+      margin-top: 0.1rem;
     }
 
     .web-link.bm-list-url {
@@ -645,6 +672,8 @@ function renderBookmarkRow({
   item,
   showCategory,
 }: BookmarkRowRenderProps): WebNode {
+  const favicon = bookmarkFaviconNode(item.url);
+
   const badges: WebNode[] = [
     {
       type: 'element',
@@ -767,6 +796,7 @@ function renderBookmarkRow({
               itemAlign: 'baseline',
             },
             children: [
+              ...(favicon ? [favicon] : []),
               {
                 type: 'element',
                 tag: 'link',

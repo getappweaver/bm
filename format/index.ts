@@ -23,5 +23,7 @@ export {
 
 export { formatBmDetail, formatUpdateDraftList } from './detail';
 
+export { bookmarkFaviconNode, bookmarkFaviconUrl } from './favicon';
+
 export type { FormatBmsOpts } from './list';
 export { formatBms, formatBmsByCategory } from './list';
