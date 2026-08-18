@@ -1,5 +1,7 @@
 import type { WebAction, WebNode, WebNodeRoot } from '@src/web/ui-schema';
 
+import { KNOWN_MEDIA_TYPES, mediaTypeLabel } from '../../../format';
+
 import { BM_BOOKMARK_KIND, getBookmarkIdentifier } from '../../publish/publish';
 import type { BmNip50RelaySupport } from '../../search/nip50';
 import {
@@ -33,6 +35,23 @@ type RenderListWebOptions = {
 };
 
 const PUBLISH_FALLBACK_RELAYS = ['wss://nos.lol', 'wss://relay.nostr.band'];
+
+const BM_LIST_MEDIA_TYPE_FILTER_REVEAL_ID = 'bm-list-media-type-filter';
+
+type BmToolbarAction = {
+  label: string;
+  icon:
+    | 'add'
+    | 'checklist'
+    | 'copy'
+    | 'diff'
+    | 'edit'
+    | 'log'
+    | 'openTimeline'
+    | 'save'
+    | 'settings';
+  action: WebAction;
+};
 
 const bmListStylesheet = {
   id: 'bm-list-web',
@@ -183,6 +202,17 @@ const bmListStylesheet = {
       background: color-mix(in srgb, var(--color-surface-alt) 94%, var(--color-warning) 6%);
     }
 
+    .web-form.bm-media-type-filter-form.web-form--stacked {
+      gap: 0.35rem;
+      padding: 0.65rem;
+      border: 1px solid color-mix(in srgb, var(--color-border) 75%, transparent);
+      background: color-mix(in srgb, var(--color-surface-alt) 94%, var(--color-info) 6%);
+    }
+
+    .web-stack.bm-media-type-filter-options {
+      gap: 0.2rem;
+    }
+
     .web-text.bm-panel-label {
       font-size: 0.78rem;
       font-weight: 800;
@@ -231,24 +261,6 @@ const bmListStylesheet = {
   `,
 } as const;
 
-function mediaTypeLabel(mediaType: string): string {
-  const normalized = mediaType.trim().toLowerCase();
-
-  if (normalized === 'read') {
-    return `📖 ${mediaType}`;
-  }
-
-  if (normalized === 'watch') {
-    return `🎥 ${mediaType}`;
-  }
-
-  if (normalized === 'listen') {
-    return `🎧 ${mediaType}`;
-  }
-
-  return mediaType;
-}
-
 function listRefresh(representation: BmListRepresentation) {
   const effectiveBy = representation.data.groupBy ?? 'cats';
 
@@ -260,6 +272,138 @@ function listRefresh(representation: BmListRepresentation) {
       ...representation.data.listInvocation.options,
       by: effectiveBy,
     },
+  };
+}
+
+/** Active media-type narrowing from the current invocation; null = show all. */
+function mediaTypeFilterSelection(
+  representation: BmListRepresentation,
+): string[] | null {
+  const options = representation.data.listInvocation.options;
+  const types = options.media_types;
+
+  if (Array.isArray(types) && types.length > 0) {
+    const normalized = types
+      .map((t) => String(t).trim().toLowerCase())
+      .filter((t) => t.length > 0);
+
+    return normalized.length > 0 ? normalized : null;
+  }
+
+  const legacy = options.type;
+
+  if (typeof legacy === 'string' && legacy.trim() !== '') {
+    return [legacy.trim().toLowerCase()];
+  }
+
+  return null;
+}
+
+/** Checklist options: canonical types first, then any stray labels in the data. */
+function availableMediaTypes(items: BmListItem[]): string[] {
+  const pool: string[] = [...KNOWN_MEDIA_TYPES];
+
+  for (const item of items) {
+    const t = item.media_type.trim().toLowerCase();
+
+    if (t.length > 0 && !pool.includes(t)) {
+      pool.push(t);
+    }
+  }
+
+  return pool;
+}
+
+function buildMediaTypeFilterPanel(
+  representation: BmListRepresentation,
+): WebNode {
+  const refresh = listRefresh(representation);
+  const selected = mediaTypeFilterSelection(representation);
+  const types = availableMediaTypes(representation.data.items);
+
+  // Strip the current include-set: the form submit replaces it with the
+  // freshly checked values instead of accumulating into the old set.
+  const baseOptions: Record<string, unknown> = { ...refresh.options };
+  delete baseOptions.media_types;
+
+  return {
+    type: 'element',
+    tag: 'form',
+    props: {
+      className: 'web-form web-form--stacked bm-media-type-filter-form',
+      revealId: BM_LIST_MEDIA_TYPE_FILTER_REVEAL_ID,
+      hiddenUntilRevealed: true,
+      formOptionFieldNames: ['media_types'],
+      action: {
+        type: 'command',
+        command: representation.meta.command,
+        subcommand: 'list',
+        arguments: refresh.arguments,
+        options: baseOptions,
+      },
+    },
+    children: [
+      {
+        type: 'element',
+        tag: 'text',
+        props: { className: 'bm-panel-label' },
+        children: [{ type: 'text', value: 'MEDIA TYPES' }],
+      },
+      {
+        type: 'element',
+        tag: 'stack',
+        props: { className: 'bm-media-type-filter-options' },
+        children: types.map((mediaType) => ({
+          type: 'element',
+          tag: 'row',
+          props: { gap: 'xs', itemAlign: 'center' },
+          children: [
+            {
+              type: 'element',
+              tag: 'checkbox',
+              props: {
+                formFieldName: 'media_types',
+                value: mediaType,
+                checked: selected === null || selected.includes(mediaType),
+                className: 'web-checkbox--retro',
+              },
+              children: [],
+            },
+            {
+              type: 'element',
+              tag: 'text',
+              props: { size: 'sm', className: 'bm-media-type-filter-label' },
+              children: [{ type: 'text', value: mediaTypeLabel(mediaType) }],
+            },
+          ],
+        })),
+      },
+      {
+        type: 'element',
+        tag: 'row',
+        props: { className: 'web-form__actions', gap: 'sm' },
+        children: [
+          {
+            type: 'element',
+            tag: 'button',
+            props: { label: 'Apply', htmlType: 'submit' },
+            children: [],
+          },
+          {
+            type: 'element',
+            tag: 'button',
+            props: {
+              label: 'Close',
+              action: {
+                type: 'hideReveal',
+                targetId: BM_LIST_MEDIA_TYPE_FILTER_REVEAL_ID,
+              },
+            },
+            children: [],
+          },
+        ],
+      },
+    ],
   };
 }
 
@@ -794,7 +938,7 @@ function renderCategoryTreeItem(
   };
 }
 
-function buildLocalEmptyTree(): WebNode {
+function buildLocalEmptyTree(toolbarActions: BmToolbarAction[]): WebNode {
   return {
     type: 'element',
     tag: 'tree',
@@ -803,6 +947,7 @@ function buildLocalEmptyTree(): WebNode {
       className: 'bm-list-tree',
       filterable: true,
       filterPlaceholder: 'Filter bookmarks',
+      toolbarActions: toolbarActions.length > 0 ? toolbarActions : undefined,
     },
     children: [
       {
@@ -856,9 +1001,23 @@ export function renderListWeb(
 ): WebNodeRoot {
   const effectiveGroupBy = representation.data.groupBy ?? 'cats';
 
+  const mediaTypeToolbarActions: BmToolbarAction[] = [
+    {
+      label:
+        mediaTypeFilterSelection(representation) === null
+          ? 'Media types'
+          : 'Media types: filtered',
+      icon: 'checklist',
+      action: {
+        type: 'toggleReveal',
+        targetId: BM_LIST_MEDIA_TYPE_FILTER_REVEAL_ID,
+      },
+    },
+  ];
+
   const localTree: WebNode =
     representation.data.items.length === 0
-      ? buildLocalEmptyTree()
+      ? buildLocalEmptyTree(mediaTypeToolbarActions)
       : effectiveGroupBy === 'cats'
         ? {
             type: 'element',
@@ -868,6 +1027,7 @@ export function renderListWeb(
               className: 'bm-list-tree',
               filterable: true,
               filterPlaceholder: 'Filter bookmarks',
+              toolbarActions: mediaTypeToolbarActions,
             },
             children: buildCategoryTree(representation.data.items).map((node) =>
               renderCategoryTreeItem(representation, node),
@@ -881,6 +1041,7 @@ export function renderListWeb(
               className: 'bm-list-tree',
               filterable: true,
               filterPlaceholder: 'Filter bookmarks',
+              toolbarActions: mediaTypeToolbarActions,
             },
             children: representation.data.items.map((item) =>
               renderBookmarkTreeItem({
@@ -932,7 +1093,11 @@ export function renderListWeb(
                 label: 'Local',
                 className: 'bm-list-tab-panel',
               },
-              children: [localTree, buildListAiCommandForm(representation)],
+              children: [
+                buildMediaTypeFilterPanel(representation),
+                localTree,
+                buildListAiCommandForm(representation),
+              ],
             },
             {
               type: 'element',

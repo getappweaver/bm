@@ -39,6 +39,7 @@ export const adaptListCommand: BmCommandAdapter = async (params) => {
         unconsumed: parsed.filters.consumed === false,
         consumed: parsed.filters.consumed === true,
         type: parsed.filters.media_type,
+        media_types: parsed.filters.media_types,
         tags: parsed.filters.tags_all,
         category: parsed.filters.category,
         title: parsed.filters.title_contains,

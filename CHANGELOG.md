@@ -4,9 +4,13 @@ All notable changes for each version are listed under the corresponding `v*.*.*`
 Tags and this file are updated by the post-commit hook when you commit with `--patch`, `--minor`, or `--major` (see CONTRIBUTING.md).
 You can also run `bun run release:changelog` to rewrite this file from tags.
 
+## [v4.4.0] - 2026-08-18
+
+- feat: add media-type filter to bookmark list widget (bc4b920)
+
 ## [v4.3.0] - 2026-08-18
 
-- feat: promote canonical media types and shared labels (cf0e4e7)
+- feat: promote canonical media types and shared labels (a9cbd1a)
 
 ## [v4.2.1] - 2026-07-15
 

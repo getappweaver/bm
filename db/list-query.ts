@@ -66,6 +66,22 @@ function listBmsFromDatabase({
     }
   }
 
+  if (filters.media_types !== null && filters.media_types.length > 0) {
+    const types = filters.media_types
+      .map((t) => normalizeMediaTypeFilter(t))
+      .filter((t): t is string => t !== null && t.length > 0);
+
+    if (types.length > 0) {
+      const keys = types.map((_, i) => `$mediaTypes${i}`);
+
+      conditions.push(`media_type IN (${keys.join(', ')})`);
+
+      types.forEach((t, i) => {
+        bind[`mediaTypes${i}`] = t;
+      });
+    }
+  }
+
   if (filters.category !== null) {
     const raw = filters.category.trim();
     const esc = escapeSqlLikeFragment(raw);

@@ -38,6 +38,7 @@ export function getNextBm({
     title_contains: null,
     url_contains: null,
     media_type: mediaType,
+    media_types: null,
     in_queue: null,
     consumed: false,
   };

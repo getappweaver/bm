@@ -37,6 +37,7 @@ export function parseBmListCliArgs({
   }
 
   const tagsAccum: string[] = [];
+  const mediaTypesAccum: string[] = [];
   let category: string | null = null;
   let titleContains: string | null = null;
   let urlContains: string | null = null;
@@ -108,6 +109,26 @@ export function parseBmListCliArgs({
       }
 
       mediaType = v;
+      i += 1;
+
+      continue;
+    }
+
+    if (a === '--media_types') {
+      const v = nextValue(rest, i);
+
+      if (v === null) {
+        return { ok: false, error: 'Missing value for --media_types.' };
+      }
+
+      for (const raw of v.split(',')) {
+        const t = raw.trim();
+
+        if (t) {
+          mediaTypesAccum.push(t);
+        }
+      }
+
       i += 1;
 
       continue;
@@ -220,6 +241,10 @@ export function parseBmListCliArgs({
 
   const mtNorm = normalizeMediaTypeFilter(mediaType);
 
+  const mediaTypesNorm = mediaTypesAccum
+    .map((t) => normalizeMediaTypeFilter(t))
+    .filter((t): t is string => t !== null);
+
   return {
     ok: true,
     filters: {
@@ -230,6 +255,7 @@ export function parseBmListCliArgs({
       in_queue: inQueue,
       consumed,
       media_type: mtNorm,
+      media_types: mediaTypesNorm.length > 0 ? mediaTypesNorm : null,
     },
     groupBy,
   };

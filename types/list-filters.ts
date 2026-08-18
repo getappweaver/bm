@@ -13,6 +13,8 @@ export type BmListFilters = {
   consumed: boolean | null;
   /** Exact match on normalized (lowercase) media_type; null = no filter. */
   media_type: string | null;
+  /** Include-only set of normalized media types (widget checklist); null = no filter. */
+  media_types: string[] | null;
 };
 
 export const BM_LIST_FILTERS_NONE: BmListFilters = {
@@ -23,6 +25,7 @@ export const BM_LIST_FILTERS_NONE: BmListFilters = {
   in_queue: null,
   consumed: null,
   media_type: null,
+  media_types: null,
 };
 
 type BmListFiltersPartial = {
@@ -33,6 +36,7 @@ type BmListFiltersPartial = {
   in_queue?: boolean | undefined;
   consumed?: boolean | undefined;
   media_type?: string | undefined;
+  media_types?: string[] | undefined;
 };
 
 export function normalizeBmListFilters(
@@ -46,5 +50,6 @@ export function normalizeBmListFilters(
     in_queue: partial.in_queue ?? null,
     consumed: partial.consumed ?? null,
     media_type: partial.media_type ?? null,
+    media_types: partial.media_types ?? null,
   };
 }

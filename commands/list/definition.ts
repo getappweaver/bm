@@ -54,6 +54,14 @@ export const listDefinition = (
       kind: 'string',
     },
     {
+      name: 'media_types',
+      summary: 'Show only these media types (repeatable or comma-separated).',
+      flag: '--media_types',
+      shortFlag: null,
+      kind: 'string',
+      multiple: true,
+    },
+    {
       name: 'tag',
       summary: 'Tag filter (repeatable in CLI).',
       flag: '--tag',
