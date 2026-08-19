@@ -45,8 +45,7 @@ type ExecuteBmToolProps = {
   pool: SimplePool | undefined;
   masterPubkey: string | undefined;
   getWotScore:
-    | ((pubkey: string, rootPubkey?: string) => number | null)
-    | undefined;
+    ((pubkey: string, rootPubkey?: string) => number | null) | undefined;
 };
 
 export async function executeTool({

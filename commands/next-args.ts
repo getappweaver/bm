@@ -10,8 +10,7 @@ export type BmNextCliFilters = {
 };
 
 type ParseBmNextCliArgsResult =
-  | { ok: true; filters: BmNextCliFilters }
-  | { ok: false; error: string };
+  { ok: true; filters: BmNextCliFilters } | { ok: false; error: string };
 
 type ParseBmNextCliArgsProps = {
   rest: string[];

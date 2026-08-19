@@ -10,8 +10,7 @@ export type BmSearchFilters = {
 };
 
 type ParseBmSearchCliArgsResult =
-  | { ok: true; filters: BmSearchFilters }
-  | { ok: false; error: string };
+  { ok: true; filters: BmSearchFilters } | { ok: false; error: string };
 
 function nextValue(args: string[], i: number): string | null {
   const v = args[i + 1];

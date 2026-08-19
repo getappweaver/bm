@@ -26,9 +26,7 @@ export type DeleteDraftEntry = {
 };
 
 export type BmDraftEntry =
-  | CreateDraftEntry
-  | UpdateDraftEntry
-  | DeleteDraftEntry;
+  CreateDraftEntry | UpdateDraftEntry | DeleteDraftEntry;
 
 export type BmDraftRow = BmDraftEntry & {
   id: number;

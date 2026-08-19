@@ -4,9 +4,13 @@ All notable changes for each version are listed under the corresponding `v*.*.*`
 Tags and this file are updated by the post-commit hook when you commit with `--patch`, `--minor`, or `--major` (see CONTRIBUTING.md).
 You can also run `bun run release:changelog` to rewrite this file from tags.
 
+## [v4.5.1] - 2026-08-19
+
+- fix: lint (df4cfab)
+
 ## [v4.5.0] - 2026-08-18
 
-- feat: display favicon using duckduckgo API (b65e366)
+- feat: display favicon using duckduckgo API (6c11051)
 
 ## [v4.4.0] - 2026-08-18
 
