@@ -91,6 +91,7 @@ export function handleUpdateCommand(cmd: HandleBmCommandProps): string {
 
   const draftId = storeDraft(db, {
     sessionId: createDraftSessionId(),
+    agentSessionId: null,
     kind: 'update',
     input: parsed.data,
     originalPrompt: `${prefix}${alias} update ${id} ${field} ${rawValue}`,

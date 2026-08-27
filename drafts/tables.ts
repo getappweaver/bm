@@ -9,6 +9,7 @@ export function createBmDraftsTable(db: Database): void {
     CREATE TABLE IF NOT EXISTS bm_drafts (
       id              INTEGER PRIMARY KEY,
       session_id      TEXT NOT NULL DEFAULT '',
+      agent_session_id TEXT,
       kind            TEXT NOT NULL,
       input           TEXT NOT NULL,
       original_prompt TEXT NOT NULL DEFAULT '',
@@ -24,5 +25,9 @@ export function createBmDraftsTable(db: Database): void {
     db.run(
       `ALTER TABLE bm_drafts ADD COLUMN session_id TEXT NOT NULL DEFAULT ''`,
     );
+  }
+
+  if (!cols.some((column) => column.name === 'agent_session_id')) {
+    db.run(`ALTER TABLE bm_drafts ADD COLUMN agent_session_id TEXT`);
   }
 }

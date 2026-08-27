@@ -82,6 +82,7 @@ export async function executeTool({
 
       const draftId = storeDraft(db, {
         sessionId: createDraftSessionId(),
+        agentSessionId: null,
         kind: 'create',
         input,
         originalPrompt: call.original_prompt,
@@ -106,6 +107,7 @@ export async function executeTool({
 
       const draftId = storeDraft(db, {
         sessionId: createDraftSessionId(),
+        agentSessionId: null,
         kind: 'update',
         input: call.input,
         originalPrompt: call.original_prompt,
@@ -128,6 +130,7 @@ export async function executeTool({
 
       const draftId = storeDraft(db, {
         sessionId: createDraftSessionId(),
+        agentSessionId: null,
         kind: 'delete',
         input: { id: call.input.id },
         originalPrompt: call.original_prompt,
@@ -263,6 +266,7 @@ export async function executeTool({
 
       const draftId = storeDraft(db, {
         sessionId: createDraftSessionId(),
+        agentSessionId: null,
         kind: 'create',
         input,
         originalPrompt: call.original_prompt,

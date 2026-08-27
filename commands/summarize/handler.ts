@@ -9,12 +9,8 @@ import { handleBmSummarize } from '../ai/handle-summarize';
 export async function handleSummarizeCommand(
   cmd: HandleBmCommandProps,
 ): Promise<string> {
-  const { identity, prefix, runAgent, db, rest } = cmd;
+  const { identity, prefix, agent, db, rest } = cmd;
   const alias = identity.alias;
-
-  if (!runAgent) {
-    return `${prefix}${alias} summarize requires an agent backend. Set backend and try again.`;
-  }
 
   const idRaw = rest[0]?.trim();
 
@@ -28,5 +24,5 @@ export async function handleSummarizeCommand(
     return `Usage: ${prefix}${alias} summarize <id>`;
   }
 
-  return handleBmSummarize({ id, db, identity, prefix, runAgent });
+  return handleBmSummarize({ id, db, identity, prefix, agent });
 }

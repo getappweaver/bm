@@ -16,7 +16,7 @@ export async function handleAiCommand(
     identity,
     prefix,
     promptFn,
-    runAgent,
+    agent,
     db,
     source,
     pool,
@@ -24,12 +24,6 @@ export async function handleAiCommand(
     getWotScore,
     rest,
   } = cmd;
-
-  const alias = identity.alias;
-
-  if (!runAgent) {
-    return `${prefix}${alias} ai requires an agent backend. Set backend and try again.`;
-  }
 
   return handleBmAi({
     args: rest,
@@ -39,7 +33,7 @@ export async function handleAiCommand(
     prefix,
     source,
     promptFn,
-    runAgent,
+    agent,
     pool,
     masterPubkey,
     getWotScore,

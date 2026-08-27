@@ -18,7 +18,7 @@ import {
 export async function handleSearchImportCommand(
   cmd: HandleBmCommandProps,
 ): Promise<SearchCommandResult> {
-  const { db, identity, prefix, pool, masterPubkey, runAgent, rest } = cmd;
+  const { db, identity, prefix, pool, masterPubkey, agent, rest } = cmd;
   const alias = identity.alias;
   const idRaw = rest[1]?.trim();
 
@@ -76,19 +76,12 @@ export async function handleSearchImportCommand(
     };
   }
 
-  if (!runAgent) {
-    return {
-      type: 'text',
-      text: `${prefix}${alias} search import ${id} requires an agent backend. Use ${prefix}${alias} search import ${id} --raw instead.`,
-    };
-  }
-
   return {
     type: 'text',
     text: await createDraftFromSearchResult({
       result,
       displayIndex: id,
-      runAgent,
+      agent,
       db,
       alias,
       prefix,

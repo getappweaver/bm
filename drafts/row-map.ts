@@ -19,6 +19,10 @@ export function rowToDraft(row: Record<string, unknown>): BmDraftRow {
   const originalPrompt = String(row.original_prompt);
   const id = Number(row.id);
   const sessionId = String(row.session_id ?? '');
+
+  const agentSessionId =
+    typeof row.agent_session_id === 'string' ? row.agent_session_id : null;
+
   const createdAt = Number(row.created_at);
 
   if (kind === 'create') {
@@ -31,6 +35,7 @@ export function rowToDraft(row: Record<string, unknown>): BmDraftRow {
     return {
       id,
       sessionId,
+      agentSessionId,
       createdAt,
       kind,
       input: normalized,
@@ -42,6 +47,7 @@ export function rowToDraft(row: Record<string, unknown>): BmDraftRow {
     return {
       id,
       sessionId,
+      agentSessionId,
       createdAt,
       kind,
       input: input as UpdateBmInput,
@@ -53,6 +59,7 @@ export function rowToDraft(row: Record<string, unknown>): BmDraftRow {
     return {
       id,
       sessionId,
+      agentSessionId,
       createdAt,
       kind,
       input: input as { id: number },

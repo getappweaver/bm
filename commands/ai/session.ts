@@ -1,11 +1,11 @@
 import type { Database } from 'bun:sqlite';
 
-import type { AgentRunResult } from '@src/backends/types';
 import { getOutputString } from '@src/backends/types';
-import { type PromptFn } from '@src/core/plugin';
+import type { PluginAgentService, PromptFn } from '@src/core/plugin';
 import type { MessageSource } from '@src/messaging';
 import { PROMPT_SESSION_EXIT } from '@src/prompt-session';
 
+import { runBmAgent } from '../../agent';
 import type { HandleBmCommandProps } from '../../command-context';
 import { buildBmPluginContextText } from '../../context';
 import { createBm, deleteBm, getBmByUrl, updateBm } from '../../db';
@@ -107,13 +107,24 @@ async function generateReplacementDraft(params: {
   draft: BmDraftRow;
   corrections: string;
   db: Database;
-  runAgent: (prompt: string) => Promise<AgentRunResult>;
+  agent: PluginAgentService;
 }): Promise<
-  { input: CreateBmDraft; originalPrompt: string } | { error: string }
+  | {
+      input: CreateBmDraft;
+      originalPrompt: string;
+      agentSessionId: string;
+    }
+  | { error: string }
 > {
   const context = buildBmPluginContextText({ db: params.db });
   const prompt = `${params.draft.originalPrompt}\n\nCorrection: ${params.corrections}`;
-  const result = await params.runAgent(buildSystemPrompt(prompt, context));
+
+  const result = await runBmAgent({
+    agent: params.agent,
+    prompt: buildSystemPrompt(prompt, context),
+    sessionId: params.draft.agentSessionId,
+  });
+
   const raw = getOutputString(result).trim();
 
   if (!raw || raw === '(no output)') {
@@ -137,6 +148,7 @@ async function generateReplacementDraft(params: {
     return {
       input: normalizeCreateBmInput(call.input),
       originalPrompt: call.original_prompt,
+      agentSessionId: result.sessionId,
     };
   }
 
@@ -181,10 +193,6 @@ export async function applyDraftSessionAction(
   }
 
   if (action === 'revise') {
-    if (!cmd.runAgent) {
-      return `${prefix}${alias} revise requires an agent backend. Set backend and try again.`;
-    }
-
     const corrections = cmd.input?.trim();
 
     if (!corrections) {
@@ -199,7 +207,7 @@ export async function applyDraftSessionAction(
       draft,
       corrections,
       db,
-      runAgent: cmd.runAgent,
+      agent: cmd.agent,
     });
 
     if ('error' in nextDraft) {
@@ -208,6 +216,7 @@ export async function applyDraftSessionAction(
 
     updateDraftEntry(db, draft.id, {
       sessionId: draft.sessionId,
+      agentSessionId: nextDraft.agentSessionId,
       kind: 'create',
       input: nextDraft.input,
       originalPrompt: `${nextDraft.originalPrompt} (revised: ${corrections})`,

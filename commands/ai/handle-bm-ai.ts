@@ -5,13 +5,13 @@
 import type { Database } from 'bun:sqlite';
 import type { SimplePool } from 'nostr-tools/pool';
 
-import type { AgentRunResult } from '@src/backends/types';
 import { getOutputString } from '@src/backends/types';
-import type { PluginIdentity } from '@src/core/plugin';
+import type { PluginAgentService, PluginIdentity } from '@src/core/plugin';
 import { debug } from '@src/logger';
 import type { MessageSource } from '@src/messaging';
 import type { WebNodeRoot } from '@src/web/ui-schema';
 
+import { runBmAgent } from '../../agent';
 import type { HandleBmCommandProps } from '../../command-context';
 import { buildBmPluginContextText } from '../../context';
 import { getBm, getBmByUrl, listBmsWithQueueFallback } from '../../db';
@@ -90,7 +90,7 @@ export type HandleBmAiProps = {
   prefix: string;
   source: MessageSource;
   promptFn: HandleBmCommandProps['promptFn'];
-  runAgent: (prompt: string) => Promise<AgentRunResult>;
+  agent: PluginAgentService;
   pool: SimplePool;
   masterPubkey: string;
   getWotScore: (pubkey: string, rootPubkey?: string) => number | null;
@@ -103,7 +103,7 @@ export async function handleBmAi({
   identity,
   prefix,
   source,
-  runAgent,
+  agent,
   promptFn,
   pool,
   masterPubkey,
@@ -122,9 +122,16 @@ export async function handleBmAi({
   let systemPrompt = buildSystemPrompt(userPrompt, context);
   let lastReadOnlyPreviews: string[] = [];
   const sessionId = createDraftSessionId();
+  let agentSessionId: string | null = null;
 
   for (let turn = 1; turn <= MAX_AI_TOOL_TURNS; turn += 1) {
-    const result = await runAgent(systemPrompt);
+    const result = await runBmAgent({
+      agent,
+      prompt: systemPrompt,
+      sessionId: agentSessionId,
+    });
+
+    agentSessionId = result.sessionId;
     const raw = getOutputString(result).trim();
 
     if (!raw || raw === '(no output)') {
@@ -338,6 +345,7 @@ export async function handleBmAi({
 
         const draftId = storeDraft(db, {
           sessionId,
+          agentSessionId,
           kind: 'create',
           input,
           originalPrompt: value.original_prompt,
@@ -366,6 +374,7 @@ export async function handleBmAi({
 
         const draftId = storeDraft(db, {
           sessionId,
+          agentSessionId,
           kind: 'create',
           input,
           originalPrompt: value.original_prompt,
@@ -399,6 +408,7 @@ export async function handleBmAi({
 
         const draftId = storeDraft(db, {
           sessionId,
+          agentSessionId,
           kind: 'update',
           input: value.input,
           originalPrompt: value.original_prompt,
@@ -428,6 +438,7 @@ export async function handleBmAi({
 
         const draftId = storeDraft(db, {
           sessionId,
+          agentSessionId,
           kind: 'delete',
           input: { id: value.input.id },
           originalPrompt: value.original_prompt,
@@ -474,7 +485,7 @@ export async function handleBmAi({
           source,
           pool,
           masterPubkey,
-          runAgent,
+          agent,
           sendReply: async () => undefined,
           promptFn,
           getWotScore,

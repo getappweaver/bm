@@ -64,7 +64,7 @@ export const BmPlugin: BotPlugin = {
       source: context.source,
       pool: BmPluginContext.pool,
       masterPubkey: BmPluginContext.masterPubkey,
-      runAgent: context.runAgent,
+      agent: context.agent,
       sendReply: context.sendReply ?? BmPluginContext.sendReply,
       promptFn: context.promptFn ?? BmPluginContext.promptFn,
       getWotScore: BmPluginContext.wot.getWotScore,

@@ -4,6 +4,7 @@
 
 import { getOutputString } from '@src/backends/types';
 
+import { runBmAgent } from '../../agent';
 import type { HandleBmCommandProps } from '../../command-context';
 import { buildBmPluginContextText } from '../../context';
 import { getDraft, updateDraftEntry } from '../../drafts/index';
@@ -16,7 +17,7 @@ import type { BmToolCall } from '../ai/schemas';
 export async function handleReviseCommand(
   cmd: HandleBmCommandProps,
 ): Promise<string> {
-  const { db, rest, identity, prefix, runAgent } = cmd;
+  const { db, rest, identity, prefix, agent } = cmd;
   const alias = identity.alias;
 
   const draftIdRaw = rest[0]?.trim();
@@ -33,10 +34,6 @@ export async function handleReviseCommand(
     return `Usage: ${prefix}${alias} revise <draft_id> <corrections>`;
   }
 
-  if (!runAgent) {
-    return `${prefix}${alias} revise requires an agent backend. Set backend and try again.`;
-  }
-
   const entry = getDraft(db, draftId);
 
   if (!entry) {
@@ -50,9 +47,13 @@ export async function handleReviseCommand(
   const context = buildBmPluginContextText({ db });
   const prompt = `${entry.originalPrompt}\n\nCorrection: ${corrections}`;
 
-  const raw = getOutputString(
-    await runAgent(buildSystemPrompt(prompt, context)),
-  ).trim();
+  const result = await runBmAgent({
+    agent,
+    prompt: buildSystemPrompt(prompt, context),
+    sessionId: entry.agentSessionId,
+  });
+
+  const raw = getOutputString(result).trim();
 
   if (!raw || raw === '(no output)') {
     return 'Model returned no output. Try again or rephrase.';
@@ -75,6 +76,7 @@ export async function handleReviseCommand(
 
   updateDraftEntry(db, draftId, {
     sessionId: entry.sessionId,
+    agentSessionId: result.sessionId,
     kind: 'create',
     input: normalizeCreateBmInput(call.input),
     originalPrompt: `${call.original_prompt} (revised: ${corrections})`,

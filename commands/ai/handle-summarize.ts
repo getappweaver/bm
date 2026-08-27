@@ -4,10 +4,10 @@
 
 import type { Database } from 'bun:sqlite';
 
-import type { AgentRunResult } from '@src/backends/types';
 import { getOutputString } from '@src/backends/types';
-import type { PluginIdentity } from '@src/core/plugin';
+import type { PluginAgentService, PluginIdentity } from '@src/core/plugin';
 
+import { runBmAgent } from '../../agent';
 import { getBm, updateBm } from '../../db';
 import { formatBmDetail } from '../../format';
 
@@ -18,7 +18,7 @@ type HandleBmSummarizeProps = {
   db: Database;
   identity: PluginIdentity;
   prefix: string;
-  runAgent: (prompt: string) => Promise<AgentRunResult>;
+  agent: PluginAgentService;
 };
 
 function stripMarkdownCodeFence(text: string): string {
@@ -56,7 +56,7 @@ export async function handleBmSummarize({
   db,
   identity,
   prefix,
-  runAgent,
+  agent,
 }: HandleBmSummarizeProps): Promise<string> {
   const alias = identity.alias;
   const bm = getBm(db, id);
@@ -65,7 +65,12 @@ export async function handleBmSummarize({
     return `Not found: #${id}`;
   }
 
-  const result = await runAgent(buildBookmarkSummarizePrompt(bm));
+  const result = await runBmAgent({
+    agent,
+    prompt: buildBookmarkSummarizePrompt(bm),
+    sessionId: null,
+  });
+
   let text = getOutputString(result).trim();
 
   if (!text || text === '(no output)') {

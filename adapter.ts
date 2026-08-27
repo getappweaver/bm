@@ -1,8 +1,12 @@
 import type { Database } from 'bun:sqlite';
 import type { EventTemplate, NostrEvent } from 'nostr-tools';
 
-import type { AgentRunResult } from '@src/backends/types';
-import type { PluginContext, PromptFn, SendReplyFn } from '@src/core/plugin';
+import type {
+  PluginAgentService,
+  PluginContext,
+  PromptFn,
+  SendReplyFn,
+} from '@src/core/plugin';
 import type { MessageSource } from '@src/messaging';
 import { getSubcommandDefinition } from '@src/system/command-definition';
 import type { WebNodeRoot } from '@src/web/ui-schema';
@@ -43,7 +47,7 @@ export type HandleBmProps = {
   source: MessageSource;
   pool: PluginContext['pool'];
   masterPubkey: string;
-  runAgent: ((prompt: string) => Promise<AgentRunResult>) | null;
+  agent: PluginAgentService;
   sendReply: SendReplyFn;
   promptFn: PromptFn;
   getWotScore: (pubkey: string, rootPubkey?: string) => number | null;

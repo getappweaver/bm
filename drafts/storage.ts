@@ -17,9 +17,10 @@ export function storeDraft(db: Database, entry: BmDraftEntry): number {
   const now = Date.now();
 
   const info = db.run(
-    `INSERT INTO bm_drafts (session_id, kind, input, original_prompt, created_at) VALUES (?, ?, ?, ?, ?)`,
+    `INSERT INTO bm_drafts (session_id, agent_session_id, kind, input, original_prompt, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
     [
       entry.sessionId,
+      entry.agentSessionId,
       entry.kind,
       JSON.stringify(entry.input),
       entry.originalPrompt,
@@ -91,10 +92,11 @@ export function updateDraftEntry(
 ): boolean {
   const info = db
     .prepare(
-      'UPDATE bm_drafts SET session_id = ?, kind = ?, input = ?, original_prompt = ? WHERE id = ?',
+      'UPDATE bm_drafts SET session_id = ?, agent_session_id = ?, kind = ?, input = ?, original_prompt = ? WHERE id = ?',
     )
     .run(
       entry.sessionId,
+      entry.agentSessionId,
       entry.kind,
       JSON.stringify(entry.input),
       entry.originalPrompt,

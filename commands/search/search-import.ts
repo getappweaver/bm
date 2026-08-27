@@ -6,11 +6,12 @@ import type { Database } from 'bun:sqlite';
 import { nip19 } from 'nostr-tools';
 import type { SimplePool } from 'nostr-tools/pool';
 
-import type { AgentRunResult } from '@src/backends/types';
 import { getOutputString } from '@src/backends/types';
+import type { PluginAgentService } from '@src/core/plugin';
 import { fetchNip65WriteRelays } from '@src/nostr/nip65';
 import { normalizePubkeyInput } from '@src/nostr/wot';
 
+import { runBmAgent } from '../../agent';
 import { getBmByUrl } from '../../db';
 import { createDraftSessionId, storeDraft } from '../../drafts/index';
 import {
@@ -146,23 +147,15 @@ export function unwrapCreateBmInputCandidate(raw: string): unknown {
 export async function createDraftFromSearchResult(props: {
   result: SearchBookmarkEvent;
   displayIndex: number;
-  runAgent: (prompt: string) => Promise<AgentRunResult>;
+  agent: PluginAgentService;
   db: Database;
   alias: string;
   prefix: string;
   pool: SimplePool;
   masterPubkey: string;
 }): Promise<string> {
-  const {
-    result,
-    displayIndex,
-    runAgent,
-    db,
-    alias,
-    prefix,
-    pool,
-    masterPubkey,
-  } = props;
+  const { result, displayIndex, agent, db, alias, prefix, pool, masterPubkey } =
+    props;
 
   const rawInput = buildRawBookmarkInput(result);
   const existing = getBmByUrl(db, rawInput.url);
@@ -174,7 +167,12 @@ export async function createDraftFromSearchResult(props: {
     });
   }
 
-  const aiResult = await runAgent(buildSearchAddPrompt(result));
+  const aiResult = await runBmAgent({
+    agent,
+    prompt: buildSearchAddPrompt(result),
+    sessionId: null,
+  });
+
   const raw = stripMarkdownCodeFence(getOutputString(aiResult));
   const parsed = CreateBmInputSchema.parse(unwrapCreateBmInputCandidate(raw));
 
@@ -198,6 +196,7 @@ export async function createDraftFromSearchResult(props: {
 
   const draftId = storeDraft(db, {
     sessionId: createDraftSessionId(),
+    agentSessionId: aiResult.sessionId,
     kind: 'create',
     input: normalized,
     originalPrompt: `Search add from result #${result.id}`,
