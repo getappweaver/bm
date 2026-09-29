@@ -66,7 +66,9 @@ export const BmPlugin: BotPlugin = {
       masterPubkey: BmPluginContext.masterPubkey,
       agent: context.agent,
       sendReply: context.sendReply ?? BmPluginContext.sendReply,
-      promptFn: context.promptFn ?? BmPluginContext.promptFn,
+      promptFn:
+        context.promptFn ??
+        (() => Promise.reject(new Error('Interactive prompt unavailable.'))),
       getWotScore: BmPluginContext.wot.getWotScore,
       signWithBunker: BmPluginContext.signWithBunker,
       helpText: (a, p) => BmPlugin.helpText(a, p),

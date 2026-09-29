@@ -11,10 +11,6 @@ export async function runBmAgent(props: {
   return props.agent.run({
     prompt: props.prompt,
     sessionId: props.sessionId,
-    backend: null,
-    provider: null,
-    model: null,
-    mode: null,
     workspaceTarget: null,
     cwd: null,
     onAgentStreamChunk: null,

@@ -4,9 +4,13 @@ All notable changes for each version are listed under the corresponding `v*.*.*`
 Tags and this file are updated by the post-commit hook when you commit with `--patch`, `--minor`, or `--major` (see CONTRIBUTING.md).
 You can also run `bun run release:changelog` to rewrite this file from tags.
 
+## [v4.6.1] - 2026-09-29
+
+- fix: supports core v13 (2a39278)
+
 ## [v4.6.0] - 2026-08-27
 
-- feat: Using new PluginContext PluginAgentService (6ee69fe)
+- feat: Using new PluginContext PluginAgentService (c3fa35d)
 
 ## [v4.5.1] - 2026-08-19
 
