@@ -38,7 +38,11 @@ type RenderListWebOptions = {
   nip50RelaySupport: BmNip50RelaySupport | null;
 };
 
-const PUBLISH_FALLBACK_RELAYS = ['wss://nos.lol', 'wss://relay.nostr.band'];
+const PUBLISH_FALLBACK_RELAYS = [
+  'wss://relay.damus.io',
+  'wss://relay.primal.net',
+  'wss://nos.lol',
+];
 
 const BM_LIST_MEDIA_TYPE_FILTER_REVEAL_ID = 'bm-list-media-type-filter';
 
